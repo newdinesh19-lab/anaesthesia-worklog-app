@@ -2,51 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f1420" />
 
-  <title>Anaesthesia Log</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+
+  <meta name="theme-color" content="#0f1420" />
 
   <meta
     name="description"
     content="Personal anaesthesia case log with OCR-assisted entry, daily/monthly stats and encrypted local storage."
   />
 
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
 
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Anaesthesia Log</title>
 
-  <link rel="stylesheet" href="style.css" />
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json" />
+
+  <!-- Android / iOS icon -->
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <!-- iOS -->
+  <meta
+    name="apple-mobile-web-app-capable"
+    content="yes"
+  />
+
+  <meta
+    name="apple-mobile-web-app-status-bar-style"
+    content="black-translucent"
+  />
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="./style.css" />
 </head>
 
 <body>
 
+  <!-- Application -->
   <div id="app"></div>
 
-  <!-- Third-party libraries -->
+
+  <!-- =========================================================
+       THIRD-PARTY LIBRARIES
+       ========================================================= -->
+
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 
-  <!-- App modules -->
-  <script src="crypto.js"></script>
-  <script src="db.js"></script>
-  <script src="parser.js"></script>
-  <script src="sequence.js"></script>
-  <script src="duplicates.js"></script>
-  <script src="stats.js"></script>
-  <script src="export.js"></script>
-  <script src="ocr.js"></script>
-  <script src="app.js"></script>
+
+  <!-- =========================================================
+       APPLICATION MODULES
+       ========================================================= -->
+
+  <script src="./crypto.js"></script>
+  <script src="./db.js"></script>
+  <script src="./parser.js"></script>
+  <script src="./sequence.js"></script>
+  <script src="./duplicates.js"></script>
+  <script src="./stats.js"></script>
+  <script src="./export.js"></script>
+  <script src="./ocr.js"></script>
+  <script src="./app.js"></script>
+
+
+  <!-- =========================================================
+       SERVICE WORKER
+       ========================================================= -->
 
   <script>
     if ('serviceWorker' in navigator) {
+
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+
+        navigator.serviceWorker.register('./SW.js')
+          .then((registration) => {
+
+            console.log(
+              'Anaesthesia Log Service Worker registered:',
+              registration.scope
+            );
+
+          })
+          .catch((error) => {
+
+            console.error(
+              'Anaesthesia Log Service Worker registration failed:',
+              error
+            );
+
+          });
+
       });
+
     }
   </script>
 
