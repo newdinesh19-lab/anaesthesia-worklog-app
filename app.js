@@ -357,12 +357,52 @@ const App = (() => {
     const inputAttrs = { class: 'input' + (warn ? ' input-warn' : ''), value: c[key] ?? '', oninput: (e) => (c[key] = e.target.value) };
     let inputEl;
     if (opts.select) {
-      inputEl = el(
-        'select',
-        { class: 'input' + (warn ? ' input-warn' : ''), onchange: (e) => (c[key] = e.target.value) },
-        opts.select.map((optVal) => el('option', { value: optVal, ...(c[key] === optVal ? { selected: 'selected' } : {}) }, optVal))
-      );
-    } else if (opts.date) {
+  const options = [];
+
+  if (!c[key]) {
+    options.push(
+      el(
+        'option',
+        {
+          value: '',
+          selected: 'selected',
+          disabled: 'disabled'
+        },
+        `Select ${label}`
+      )
+    );
+  }
+
+  options.push(
+    ...opts.select.map((optVal) =>
+      el(
+        'option',
+        {
+          value: optVal,
+          ...(c[key] === optVal ? { selected: 'selected' } : {})
+        },
+        optVal
+      )
+    )
+  );
+
+  inputEl = el(
+    'select',
+    {
+      class: 'input' + (warn ? ' input-warn' : ''),
+      onchange: (e) => {
+        c[key] = e.target.value;
+
+        if (c.ocr_confidence) {
+          c.ocr_confidence[key] = 'high';
+        }
+
+        renderReview();
+      }
+    },
+    options
+  );
+}else if (opts.date) {
       inputEl = el('input', { type: 'date', ...inputAttrs });
     } else if (opts.number) {
       inputEl = el('input', { type: 'number', ...inputAttrs });
