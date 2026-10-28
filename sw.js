@@ -1,199 +1,64 @@
-/*
- * Anaesthesia Log
- * Service Worker
- *
- * Provides:
- * - Offline app shell
- * - Faster loading
- * - PWA functionality
- *
- * Patient data is NOT stored in this cache.
- * Patient data remains in IndexedDB.
- */
-
-const CACHE_NAME = 'anaesthesia-log-shell-v2';
-
-
-/* =========================================================
-   APPLICATION FILES
-   ========================================================= */
-
+// Minimal offline app-shell cache. Patient data itself never goes through
+// here — it lives only in IndexedDB (see js/db.js), which this worker
+// never touches.
+const CACHE_NAME = 'anaesthesia-log-shell-v3';
 const SHELL_FILES = [
   './',
   './index.html',
   './manifest.json',
-  './style.css',
-
-  /* JavaScript modules */
-  './crypto.js',
-  './db.js',
-  './parser.js',
-  './sequence.js',
-  './duplicates.js',
-  './stats.js',
-  './export.js',
-  './ocr.js',
-  './app.js',
-
-  /* PWA icons */
-  './icon-192.png',
-  './icon-512.png'
+  './css/style.css',
+  './js/crypto.js',
+  './js/db.js',
+  './js/parser.js',
+  './js/sequence.js',
+  './js/duplicates.js',
+  './js/stats.js',
+  './js/export.js',
+  './js/ocr.js',
+  './js/app.js',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
 ];
 
-
-/* =========================================================
-   INSTALL
-   ========================================================= */
-
 self.addEventListener('install', (event) => {
-
   event.waitUntil(
-
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-
-        return cache.addAll(SHELL_FILES);
-
-      })
-
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES)).catch(() => {})
   );
-
-  /*
-   * Activate the new worker immediately.
-   */
-
   self.skipWaiting();
-
 });
-
-
-/* =========================================================
-   ACTIVATE
-   ========================================================= */
 
 self.addEventListener('activate', (event) => {
-
   event.waitUntil(
-
-    caches.keys()
-      .then((cacheNames) => {
-
-        return Promise.all(
-
-          cacheNames
-            .filter((cacheName) => {
-              return cacheName !== CACHE_NAME;
-            })
-            .map((cacheName) => {
-              return caches.delete(cacheName);
-            })
-
-        );
-
-      })
-
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
   );
-
-  /*
-   * Take control of open pages immediately.
-   */
-
   self.clients.claim();
-
 });
 
-
-/* =========================================================
-   FETCH
-   ========================================================= */
-
 self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
 
-  /*
-   * Only handle GET requests.
-   */
-
-  if (event.request.method !== 'GET') {
+  // Same-origin app-shell files: cache-first so the app opens offline.
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        return res;
+      }).catch(() => cached))
+    );
     return;
   }
 
-
-  const request = event.request;
-
-
+  // Third-party library CDNs: network-first, fall back to cache when offline.
   event.respondWith(
-
-    caches.match(request)
-
-      .then((cachedResponse) => {
-
-        /*
-         * If the file is already cached,
-         * use the cached version.
-         */
-
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-
-        /*
-         * Otherwise fetch from network.
-         */
-
-        return fetch(request)
-
-          .then((networkResponse) => {
-
-            /*
-             * Only cache successful responses.
-             */
-
-            if (
-              !networkResponse ||
-              networkResponse.status !== 200
-            ) {
-
-              return networkResponse;
-
-            }
-
-
-            /*
-             * Store a copy in cache.
-             */
-
-            const responseClone =
-              networkResponse.clone();
-
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-
-                cache.put(
-                  request,
-                  responseClone
-                );
-
-              });
-
-
-            return networkResponse;
-
-          })
-
-          .catch(() => {
-
-            /*
-             * If network fails, try cache.
-             */
-
-            return caches.match(request);
-
-          });
-
+    fetch(req)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        return res;
       })
-
+      .catch(() => caches.match(req))
   );
-
 });
