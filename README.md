@@ -77,15 +77,25 @@ Once it's live:
 
 ## Where things live
 
-- **Home** — today's snapshot + the big Add Case button.
-- **Calendar** — tap any date to see that day's cases.
-- **Dashboard** — monthly totals, per-anaesthetist split, working days,
-  averages, and month-end export (Excel/CSV/PDF).
-- **My Cases** — filter to just your cases (or Dr. Jagadeesh's, or all).
-- **Search** — patient name, UHID, visit number, consultant, anaesthetist,
-  hospital, location, date.
-- **Settings** — roster/hospital/location, Backup/Restore, and Recently
-  Deleted (soft-deleted cases can be restored here).
+Bottom bar: **Home · Cases · + Add · Reports · Settings**
+
+- **Home** — big Add Case card, **one-tap templates** (your recent surgery +
+  anaesthesia-mode combos: tap one, take the photo, and both fields are
+  pre-filled), today's snapshot, month tiles (tap to open your cases), a
+  7-day chart, and recently added cases.
+- **Add** — photo or upload → on-device OCR → review (⚠ Verify on doubtful
+  fields, ✓ on confident ones, original photo on top) → pick anaesthetist
+  (★ = suggested by the day's sequence), surgery, mode → Save. After saving,
+  tap **Add another** to stay on the same date.
+- **Cases** — List or Calendar, month navigation, search, anaesthetist chips
+  (All / you / Dr. Jagadeesh) and a Filters sheet (consultant, hospital,
+  mode, month or all-time). Tap a date header for that day's log, where you
+  can also **re-apply the alternating sequence**.
+- **Reports** — monthly tiles, anaesthetist donut, mode / surgery /
+  consultant breakdowns (tap any bar to see those cases), factual insights,
+  and Excel / CSV / PDF export plus "My cases only" CSV.
+- **Settings** — profile (renaming an anaesthetist also renames them on
+  existing cases), auto-lock, change PIN, Backup/Restore, Recently deleted.
 
 ## Backup
 
