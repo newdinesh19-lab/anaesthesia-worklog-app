@@ -1,64 +1,25 @@
-// Minimal offline app-shell cache. Patient data itself never goes through
-// here — it lives only in IndexedDB (see js/db.js), which this worker
-// never touches.
-const CACHE_NAME = 'anaesthesia-log-shell-v3';
-const SHELL_FILES = [
-  './',
-  './index.html',
-  './manifest.json',
-  './css/style.css',
-  './js/crypto.js',
-  './js/db.js',
-  './js/parser.js',
-  './js/sequence.js',
-  './js/duplicates.js',
-  './js/stats.js',
-  './js/export.js',
-  './js/ocr.js',
-  './js/app.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES)).catch(() => {})
-  );
-  self.skipWaiting();
+// Offline app shell. Patient data never passes through here: it lives only in IndexedDB.
+const CACHE = 'anaesthesia-log-v8-0-0';
+const SHELL = ['./', 'index.html', 'manifest.json', 'css/style.css',
+  'js/crypto.js', 'js/keys.js', 'js/ui-security.js', 'js/ui-home.js', 'js/schema.js', 'js/db.js', 'js/backup.js', 'js/meddata.js', 'js/parser.js', 'js/sequence.js', 'js/duplicates.js', 'js/stats.js',
+  'js/analytics.js', 'js/export.js', 'js/reports.js', 'js/ocr.js',
+  'js/ui-common.js', 'js/ui-data.js', 'js/ui-case.js', 'js/ui-preop.js', 'js/ui-proc.js', 'js/ui-portfolio.js', 'js/ui-dash.js', 'js/ui-search.js', 'js/ui-reports.js',
+  'js/app.js', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CDN = ['https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'];
+self.addEventListener('install', (e) => {
+  // One missing file must not stop the install: cache each file on its own.
+  e.waitUntil(caches.open(CACHE).then(async (c) => {
+    await Promise.all(SHELL.map((u) => c.add(u).catch(() => {})));
+    await Promise.all(CDN.map((u) => c.add(u).catch(() => {})));
+  }).then(() => self.skipWaiting()));
 });
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
-  );
-  self.clients.claim();
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
-
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-
-  // Same-origin app-shell files: cache-first so the app opens offline.
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-        return res;
-      }).catch(() => cached))
-    );
-    return;
-  }
-
-  // Third-party library CDNs: network-first, fall back to cache when offline.
-  event.respondWith(
-    fetch(req)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-        return res;
-      })
-      .catch(() => caches.match(req))
-  );
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((r) => {
+    if (r.ok && (e.request.url.startsWith(self.location.origin) || e.request.url.includes('cdn.jsdelivr.net'))) { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
+    return r;
+  }).catch(() => caches.match('index.html'))));
 });

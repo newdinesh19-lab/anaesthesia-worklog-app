@@ -1,51 +1,19 @@
-/**
- * duplicates.js — pre-save duplicate detection.
- *
- * Criteria (from spec):
- *   - same UHID, OR
- *   - same visit_number, OR
- *   - same patient_name (case/space-insensitive) + same case_date
- */
-
-function norm(s) {
-  return (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-/**
- * @param {Object} candidate  the case about to be saved
- * @param {Array<Object>} existingCases  all non-deleted saved cases
- * @returns {Array<Object>} matching existing cases (possibly empty)
- */
-function findPossibleDuplicates(candidate, existingCases) {
-  const matches = [];
-  const candUhid = norm(candidate.uhid);
-  const candVisit = norm(candidate.visit_number);
-  const candName = norm(candidate.patient_name);
-  const candDate = candidate.case_date;
-
-  for (const existing of existingCases || []) {
-    if (existing.deleted_at) continue;
-    if (candidate.case_id && existing.case_id === candidate.case_id) continue; // editing self
-
-    const sameUhid = candUhid && norm(existing.uhid) === candUhid;
-    const sameVisit = candVisit && norm(existing.visit_number) === candVisit;
-    const sameNameDate =
-      candName && norm(existing.patient_name) === candName && candDate && existing.case_date === candDate;
-
-    if (sameUhid || sameVisit || sameNameDate) {
-      matches.push({
-        case: existing,
-        matchedOn: [sameUhid && 'UHID', sameVisit && 'Visit No', sameNameDate && 'Name + Date'].filter(Boolean),
-      });
-    }
+/** duplicates.js — same UHID, same visit number, or same name + date. */
+const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+function findPossibleDuplicates(cand, existing) {
+  const out = [];
+  const u = norm(cand.uhid), v = norm(cand.visit_number), n = norm(cand.patient_name);
+  for (const e of existing || []) {
+    if (e.deleted_at || (cand.case_id && e.case_id === cand.case_id)) continue;
+    const su = u && norm(e.uhid) === u, sv = v && norm(e.visit_number) === v;
+    const sn = n && norm(e.patient_name) === n && cand.case_date && e.case_date === cand.case_date;
+    if (!(su || sv || sn)) continue;
+    // strong: same visit number, same name on the same day, or same UHID on the same day. weak: same UHID on another day (a repeat visit is normal).
+    const sameDay = cand.case_date && e.case_date === cand.case_date;
+    out.push({ case: e, matchedOn: [su && 'UHID', sv && 'Visit No', sn && 'Name + Date'].filter(Boolean), strength: sv || sn || (su && sameDay) ? 'strong' : 'weak' });
   }
-  return matches;
+  return out;
 }
-
 const DuplicatesModule = { findPossibleDuplicates };
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = DuplicatesModule;
-}
-if (typeof window !== 'undefined') {
-  window.Duplicates = DuplicatesModule;
-}
+if (typeof module !== 'undefined' && module.exports) module.exports = DuplicatesModule;
+if (typeof window !== 'undefined') window.Duplicates = DuplicatesModule;

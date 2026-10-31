@@ -1,33 +1,13 @@
-/**
- * ocr.js — thin wrapper around Tesseract.js so the rest of the app only
- * deals with "give me text from this image file".
- */
-
+/** ocr.js — Tesseract.js wrapper (runs on the device). */
 const OCR = (() => {
-  let workerPromise = null;
-
-  async function getWorker(onProgress) {
-    if (workerPromise) return workerPromise;
-    workerPromise = Tesseract.createWorker('eng', 1, {
-      logger: (m) => {
-        if (onProgress && m.status === 'recognizing text') onProgress(m.progress);
-      },
-    });
-    return workerPromise;
-  }
-
-  /**
-   * @param {Blob|File} imageFile
-   * @param {(progress:number)=>void} [onProgress] 0..1
-   * @returns {Promise<{text:string}>}
-   */
-  async function recognize(imageFile, onProgress) {
-    const worker = await getWorker(onProgress);
-    const { data } = await worker.recognize(imageFile);
+  let wp = null, cb = null;
+  async function recognize(file, onProgress) {
+    cb = onProgress;
+    if (!wp) wp = Tesseract.createWorker('eng', 1, { logger: (m) => { if (cb && m.status === 'recognizing text') cb(m.progress); } });
+    const w = await wp;
+    const { data } = await w.recognize(file);
     return { text: data.text };
   }
-
   return { recognize };
 })();
-
 if (typeof window !== 'undefined') window.OCR = OCR;

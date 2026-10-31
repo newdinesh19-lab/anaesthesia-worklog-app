@@ -1,98 +1,39 @@
-/**
- * crypto.js — PIN-derived AES-GCM encryption for everything this app
- * stores locally (case records + registration-sheet photos). Nothing here
- * ever leaves the device; there is no server component.
- *
- * Key derivation: PBKDF2(PIN, salt, 150000 rounds) -> AES-256-GCM key.
- * A random salt is generated once and stored in IndexedDB (plaintext —
- * a salt is not a secret). A "verifier" (a known plaintext string,
- * encrypted) is stored alongside it so a wrong PIN can be detected before
- * touching real data.
- */
-
+/** crypto.js — PIN-derived AES-256-GCM encryption for everything stored locally. */
 const CryptoModule = (() => {
-  const PBKDF2_ITERATIONS = 150000;
-  const VERIFIER_PLAINTEXT = 'anaesthesia-log-v1-ok';
-
-  function randomBytes(len) {
-    return crypto.getRandomValues(new Uint8Array(len));
+  const ITER = 150000;      // iterations used by every PIN created before V8 (kept so old data still unlocks)
+  const ITER_NEW = 310000;  // used for new PINs from V8 on; the value is stored in meta ('kdf') next to the salt
+  const VERIFIER = 'anaesthesia-log-v1-ok';
+  const rnd = (n) => crypto.getRandomValues(new Uint8Array(n));
+  function bufToB64(buf) { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.byteLength; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+  function b64ToBuf(b64) { const s = atob(b64); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b.buffer; }
+  async function deriveKey(pin, saltB64, iterations) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64ToBuf(saltB64), iterations: iterations || ITER, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
   }
-
-  function bufToB64(buf) {
-    const bytes = new Uint8Array(buf);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
+  /** SHA-256 hex digest of a string or ArrayBuffer (used to detect a damaged backup file). */
+  async function sha256Hex(input) {
+    const buf = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+    return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('');
   }
-
-  function b64ToBuf(b64) {
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes.buffer;
-  }
-
-  async function deriveKey(pin, saltB64) {
-    const enc = new TextEncoder();
-    const salt = b64ToBuf(saltB64);
-    const baseKey = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
-      baseKey,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
-  }
-
-  function newSalt() {
-    return bufToB64(randomBytes(16));
-  }
-
-  /** Encrypt a JS value (JSON-serializable) -> { iv, data } both base64. */
+  const newSalt = () => bufToB64(rnd(16));
   async function encryptJSON(key, value) {
-    const iv = randomBytes(12);
-    const enc = new TextEncoder();
-    const plaintext = enc.encode(JSON.stringify(value));
-    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
-    return { iv: bufToB64(iv), data: bufToB64(cipher) };
+    const iv = rnd(12);
+    const c = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(value)));
+    return { iv: bufToB64(iv), data: bufToB64(c) };
   }
-
-  async function decryptJSON(key, packet) {
-    const iv = new Uint8Array(b64ToBuf(packet.iv));
-    const cipherBuf = b64ToBuf(packet.data);
-    const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipherBuf);
-    const dec = new TextDecoder();
-    return JSON.parse(dec.decode(plainBuf));
+  async function decryptJSON(key, p) {
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(b64ToBuf(p.iv)) }, key, b64ToBuf(p.data));
+    return JSON.parse(new TextDecoder().decode(plain));
   }
-
-  /** Encrypt raw binary (e.g. an image Blob's ArrayBuffer). */
-  async function encryptBinary(key, arrayBuffer) {
-    const iv = randomBytes(12);
-    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, arrayBuffer);
-    return { iv: bufToB64(iv), data: cipher }; // keep ciphertext as raw ArrayBuffer for IDB storage efficiency
+  async function encryptBinary(key, ab) {
+    const iv = rnd(12);
+    return { iv: bufToB64(iv), data: await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, ab) };
   }
-
-  async function decryptBinary(key, packet) {
-    const iv = new Uint8Array(b64ToBuf(packet.iv));
-    return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, packet.data);
-  }
-
-  async function makeVerifier(key) {
-    return encryptJSON(key, VERIFIER_PLAINTEXT);
-  }
-
-  async function checkVerifier(key, verifierPacket) {
-    try {
-      const val = await decryptJSON(key, verifierPacket);
-      return val === VERIFIER_PLAINTEXT;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  return { newSalt, deriveKey, encryptJSON, decryptJSON, encryptBinary, decryptBinary, makeVerifier, checkVerifier, bufToB64, b64ToBuf };
+  const decryptBinary = (key, p) => crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(b64ToBuf(p.iv)) }, key, p.data);
+  const makeVerifier = (key) => encryptJSON(key, VERIFIER);
+  async function checkVerifier(key, p) { try { return (await decryptJSON(key, p)) === VERIFIER; } catch (e) { return false; } }
+  return { ITER, ITER_NEW, sha256Hex, newSalt, deriveKey, encryptJSON, decryptJSON, encryptBinary, decryptBinary, makeVerifier, checkVerifier, bufToB64, b64ToBuf };
 })();
-
 if (typeof window !== 'undefined') window.CryptoModule = CryptoModule;
 if (typeof module !== 'undefined' && module.exports) module.exports = CryptoModule;
