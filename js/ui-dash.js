@@ -18,6 +18,7 @@
       item('backup', 'download', 'Backup', 'Back up / restore', 'sky'),
       item('bin', 'trash', 'Recycle bin', 'Restore deleted', 'amber'),
     ]));
+    screen.appendChild(h('p', { class: 'muted', style: 'text-align:center;font-size:12px;margin:18px 0' }, 'Anaesthesia Log v' + Schema.APP_VERSION));
   }
 
   // ------------------------------------------------------------------ analytics dashboard

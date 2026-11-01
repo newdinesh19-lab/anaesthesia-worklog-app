@@ -514,3 +514,6 @@ button.stat:active { transform: scale(.97); }
 .plan-empty { padding: 8px 0; font-size: 14px; } .plan-card .section-title { margin-bottom: 6px; }
 .cal-cell.sel { outline: 2px solid var(--brand); } .note.warn { color: var(--rose-ink); font-weight: 700; }
 .plan-time { width: 74px; } .plan-time small { white-space: nowrap; } .grid2 > * { min-width: 0; } input[type=date].input, input[type=time].input { min-width: 0; max-width: 100%; }
+
+/* v9.1: pull-down must never reload the app (it would re-lock it) */
+html, body { overscroll-behavior-y: none; }

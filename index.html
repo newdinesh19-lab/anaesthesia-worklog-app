@@ -55,7 +55,13 @@
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then((r) => r.update && r.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js').then((r) => { r.update && r.update();
+      r.addEventListener('updatefound', () => { const w = r.installing; w && w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller && !document.getElementById('updBar')) {
+          const b = document.createElement('div'); b.id = 'updBar'; b.setAttribute('style', 'position:fixed;left:12px;right:12px;bottom:84px;z-index:9999;background:#172554;color:#fff;padding:12px 14px;border-radius:14px;font:14px system-ui;display:flex;gap:10px;align-items:center;justify-content:space-between');
+          b.innerHTML = '<span>New version ready. Reloading will ask for your PIN again.</span><button style="background:#2563EB;color:#fff;border:0;border-radius:10px;padding:8px 12px;font:600 14px system-ui">Update</button>';
+          b.querySelector('button').onclick = () => location.reload(); document.body.appendChild(b); } }); });
+    }).catch(() => {});
   });
 }
 </script>

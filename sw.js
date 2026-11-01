@@ -1,5 +1,5 @@
 // Offline app shell. Patient data never passes through here: it lives only in IndexedDB.
-const CACHE = 'anaesthesia-log-v8-3-0'; // bump on every release so phones pick up new files
+const CACHE = 'anaesthesia-log-v9-1-0'; // bump on every release so phones pick up new files
 const SHELL = ['./', 'index.html', 'manifest.json', 'css/style.css',
   'js/crypto.js', 'js/schedule.js', 'js/ui-schedule.js', 'js/keys.js', 'js/ui-security.js', 'js/ui-home.js', 'js/schema.js', 'js/db.js', 'js/backup.js', 'js/meddata.js', 'js/parser.js', 'js/sequence.js', 'js/duplicates.js', 'js/stats.js',
   'js/analytics.js', 'js/export.js', 'js/reports.js', 'js/ocr.js',
@@ -19,11 +19,18 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const own = e.request.url.startsWith(self.location.origin);
-  // own files: answer from cache at once, refresh the cache in the background (next open is up to date)
-  e.respondWith(caches.match(e.request).then((hit) => {
-    const net = fetch(e.request).then((r) => { if (r.ok && (own || e.request.url.includes('cdn.jsdelivr.net'))) { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); } return r; }).catch(() => hit || caches.match('index.html'));
-    return hit || net;
-  }));
+  const keep = (r) => { if (r.ok && (own || e.request.url.includes('cdn.jsdelivr.net'))) { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); } return r; };
+  if (own) {
+    // own files: network first (new releases show on the very next open), cache if offline/slow
+    e.respondWith(new Promise((resolve) => {
+      let done = false; const fromCache = () => caches.match(e.request).then((h) => h || caches.match('index.html'));
+      const t = setTimeout(() => fromCache().then((h) => { if (h && !done) { done = true; resolve(h); } }), 4000);
+      fetch(e.request, { cache: 'no-cache' }).then((r) => { clearTimeout(t); if (!done) { done = true; resolve(keep(r)); } else keep(r); })
+        .catch(() => { clearTimeout(t); if (!done) { done = true; fromCache().then(resolve); } });
+    }));
+    return;
+  }
+  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then(keep)));
 });
 self.addEventListener('message', (e) => { if (e.data === 'skipWaiting') self.skipWaiting(); });
 self.addEventListener('notificationclick', (e) => {
