@@ -198,3 +198,12 @@ Navy / royal blue / teal / coral / purple palette, flat white cards with soft sh
 - **Navigation:** bottom bar on phones (never overlaps content); left sidebar from 900 px wide.
 - Subtle hover/press feedback, counting statistics (off for reduced-motion users), button spinner while the PIN is checked.
 - Inter is not bundled (no internet fetch at build time); add `fonts/Inter.woff2` and an `@font-face` if you want it offline.
+
+## Schedule & reminders (v9.1)
+
+- **Home → Plan a case** (below Night duty) and **More → Schedule**: record an upcoming/planned case with date, start/end time, hospital, location/theatre, surgery, consultant, anaesthetist, urgency, techniques, optional patient/UHID and notes.
+- Status: planned / done / cancelled. "Start case" converts a plan into a case-log entry with fields pre-filled. Overlapping plans show a warning.
+- **Reminders** (default 1 hour and 1 day before; also at start, 15 min, 3 h): shown as in-app alerts (bell) and as system notifications when permission is granted.
+- **Limits (honest):** a PWA with no server cannot wake itself when fully closed. In-app/system alerts fire while the app is open or recently used. For guaranteed alerts when the app is closed, use **Add to calendar (.ics)** – it contains alarms for your phone calendar.
+- Plans are stored encrypted in the existing `templates` store (type `plan`), so backup, restore and PIN change include them. No schema change.
+- **Home-screen colour/icon:** the installed app caches its manifest; if the old green strip persists, remove and re-add the app to home screen (data is kept – same origin).

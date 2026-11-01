@@ -500,3 +500,17 @@ button.stat:active { transform: scale(.97); }
 @media (min-width: 900px) { .stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } .stat { flex-direction: column; align-items: flex-start; } }
 @media (max-width: 340px) { .home-actions { gap: 3px; } .home-actions .icon-btn { width: 33px; height: 33px; } .home-head { gap: 6px; } .home-title h1 { font-size: 17px; } .qa { padding: 10px; gap: 8px; } .qa-ic { width: 34px; height: 34px; } }
 .recent-cards { grid-template-columns: minmax(0, 1fr); } .rc { min-width: 0; overflow: hidden; } .rc-top b { min-width: 0; }
+/* schedule */
+.plan { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 14px; margin-bottom: 8px; overflow: hidden; box-shadow: var(--shadow); }
+.plan.today { border-left-color: #F97373; } .plan.off { opacity: .65; border-left-color: var(--muted); }
+.plan-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 12px; text-align: left; }
+.plan-time { width: 64px; flex: none; } .plan-time b { display: block; font-size: 15px; } .plan-time small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.plan-main { flex: 1; min-width: 0; } .plan-main b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .plan-main small { display: block; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-clash { color: var(--rose-ink) !important; font-weight: 700; }
+.plan-head > .ic { color: var(--muted); width: 18px; transition: transform .2s; } .plan.open .plan-head > .ic { transform: rotate(90deg); }
+.plan-body { display: none; padding: 0 12px 12px; } .plan.open .plan-body { display: block; animation: fadeUp .2s ease both; }
+.plan-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 0; text-align: left; border-bottom: 1px dashed var(--line); }
+.plan-date { width: 42px; height: 46px; border-radius: 12px; background: var(--sky); color: var(--sky-ink); display: grid; place-content: center; text-align: center; flex: none; } .plan-date b { font-size: 17px; line-height: 1; } .plan-date small { font-size: 10.5px; font-weight: 800; text-transform: uppercase; }
+.plan-empty { padding: 8px 0; font-size: 14px; } .plan-card .section-title { margin-bottom: 6px; }
+.cal-cell.sel { outline: 2px solid var(--brand); } .note.warn { color: var(--rose-ink); font-weight: 700; }
+.plan-time { width: 74px; } .plan-time small { white-space: nowrap; } .grid2 > * { min-width: 0; } input[type=date].input, input[type=time].input { min-width: 0; max-width: 100%; }

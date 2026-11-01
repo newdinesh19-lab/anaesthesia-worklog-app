@@ -55,8 +55,8 @@ const ExportModule = (() => {
     for (const n of roster) { doc.text(`${n}: ${s.byAnaesthetist[n] || 0}`, 14, y); y += 6; }
     doc.text(`Working Days: ${s.workingDays}    Avg/Day: ${s.avgPerDay}`, 14, y); y += 8;
     const all = withNotable([...cases].sort(byDate));
-    doc.autoTable({ startY: y, head: [COLS.map(([l]) => l)], body: all.map((c, i) => COLS.map(([, k]) => (k === 'sno' ? i + 1 : c[k] ?? ''))), styles: { fontSize: 7 }, headStyles: { fillColor: [44, 106, 85] } });
-    if (duties.length) doc.autoTable({ head: [['Night duty date', 'Hospital', 'Location', 'From', 'To', 'Notes']], body: [...duties].sort((a, b) => a.date.localeCompare(b.date)).map((d) => [d.date, d.hospital || '', d.location || '', d.start || '', d.end || '', d.notes || '']), styles: { fontSize: 8 }, headStyles: { fillColor: [60, 60, 120] } });
+    doc.autoTable({ startY: y, head: [COLS.map(([l]) => l)], body: all.map((c, i) => COLS.map(([, k]) => (k === 'sno' ? i + 1 : c[k] ?? ''))), styles: { fontSize: 7 }, headStyles: { fillColor: [37, 99, 235] } });
+    if (duties.length) doc.autoTable({ head: [['Night duty date', 'Hospital', 'Location', 'From', 'To', 'Notes']], body: [...duties].sort((a, b) => a.date.localeCompare(b.date)).map((d) => [d.date, d.hospital || '', d.location || '', d.start || '', d.end || '', d.notes || '']), styles: { fontSize: 8 }, headStyles: { fillColor: [23, 37, 84] } });
     doc.save(`${fileNamePrefix}.pdf`);
   }
   function downloadBlob(blob, name) {

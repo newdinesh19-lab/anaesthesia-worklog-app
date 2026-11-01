@@ -248,7 +248,7 @@
 
   function renderTemplates(screen) {
     screen.appendChild(ctx.pageHead('Templates', 'Surgery · anaesthesia · procedure', null, 'settings'));
-    if (!state.templates.length) screen.appendChild(h('div', { class: 'empty' }, [ic('bolt'), h('div', {}, 'No templates yet. Use “Save as template” on a case or a procedure.')]));
+    if (!state.templates.filter((t) => t.type !== 'plan').length) screen.appendChild(h('div', { class: 'empty' }, [ic('bolt'), h('div', {}, 'No templates yet. Use “Save as template” on a case or a procedure.')]));
     for (const [type, label] of S.TEMPLATE_TYPES) {
       const list = state.templates.filter((t) => t.type === type).sort((a, b) => (b.favourite ? 1 : 0) - (a.favourite ? 1 : 0) || a.name.localeCompare(b.name));
       if (!list.length) continue;

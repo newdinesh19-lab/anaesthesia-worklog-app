@@ -26,6 +26,7 @@
     const out = []; const st = state.settings, all = ctx.activeCases();
     const days = st.backupRemindDays, age = st.lastBackupAt ? Math.floor((Date.now() - new Date(st.lastBackupAt)) / 864e5) : null;
     if (days && all.length && (age === null || age >= days)) out.push({ tone: 'warn', icon: 'download', title: age === null ? 'You have never backed up' : `Last backup ${age} days ago`, text: 'Your data lives only on this phone.', action: 'Back up', go: () => go('backup') });
+    if (X.schedAlerts) out.push(...X.schedAlerts());
     const inc = all.filter((c) => !isComplete(c));
     if (inc.length) out.push({ tone: 'info', icon: 'edit', title: `${inc.length} incomplete entr${inc.length === 1 ? 'y' : 'ies'}`, text: 'Missing surgery, ASA or technique.', action: 'Review', go: () => { state.casesView = 'list'; state.filters = { ...ctx.emptyFilters(''), incomplete: true }; go('cases'); } });
     if (state.corrupt && state.corrupt.length) out.push({ tone: 'warn', icon: 'warn', title: `${state.corrupt.length} unreadable record(s)`, text: 'See Data health.', action: 'Open', go: () => go('health') });
@@ -79,6 +80,8 @@
       h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : `Tap once to mark ${nd === today ? 'tonight' : fmtDay(nd)}`)]),
       h('span', { class: 'go' }, ic(existing ? 'edit' : 'plus')),
     ]));
+
+    if (X.schedHomeCard) screen.appendChild(X.schedHomeCard());
 
     // B. statistics
     const duties = ctx.dutiesInMonth(ym), procsM = ctx.activeProcedures().filter((p) => (p.date || '').startsWith(ym));

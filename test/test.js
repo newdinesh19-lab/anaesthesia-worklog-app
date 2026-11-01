@@ -101,7 +101,7 @@ test('backup: inspect reports unreadable records', async () => {
 });
 
 // optional extra suites register themselves (analytics, reports …)
-for (const f of ['analytics', 'reports', 'dup', 'keys']) { try { require('./' + f + '.test.js'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; } }
+for (const f of ['analytics', 'reports', 'dup', 'keys', 'schedule']) { try { require('./' + f + '.test.js'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; } }
 (async () => {
   for (const [name, fn] of tests) { try { await fn(); pass++; console.log('  ok  ' + name); } catch (e) { fail++; console.log('  FAIL ' + name + '\n       ' + (e.stack || e).toString().split('\n').slice(0, 3).join('\n       ')); } }
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

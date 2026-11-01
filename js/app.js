@@ -14,6 +14,7 @@ const App = (() => {
   const emptyFilters = (month) => ({ month, anaes: 'ALL', consultant: '', hospital: '', mode: '', q: '', notable: false, asa: '', speciality: '', urgency: '', complication: false, incomplete: false });
 
   const state = {
+    planDraft: null, planEditing: false,
     key: null, settings: null,
     cases: [], // includes soft-deleted
     duties: [], // night duties
@@ -233,6 +234,7 @@ const App = (() => {
     salt ? renderUnlock() : renderSetupPin();
   }
 
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.route && state.key) go(e.data.route); });
   let hiddenAt = 0, lastActive = Date.now();
   function onVisibility() {
     if (!state.key) return;
@@ -389,6 +391,7 @@ const App = (() => {
     }
     await recordSchema(fresh);
     if (X.refreshSecurityStatus) await X.refreshSecurityStatus();
+    if (X.startReminders) X.startReminders();
     DB.requestPersistence();
     applyTheme();
     lastActive = Date.now();
@@ -406,6 +409,8 @@ const App = (() => {
   function applyTheme() {
     const t = state.settings?.theme || 'auto';
     if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+    const dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#0b1226' : '#F5F7FB'));
   }
 
   function enterApp() {
@@ -450,10 +455,10 @@ const App = (() => {
     root().appendChild(screen);
     banners().forEach((b) => screen.appendChild(b));
     (SCREENS[state.route] || renderHome)(screen);
-    if (!['add', 'preopEdit', 'procEdit'].includes(state.route)) root().appendChild(dock());
+    if (!['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route)) root().appendChild(dock());
   }
 
-  const MORE_ROUTES = ['more', 'settings', 'backup', 'security', 'procedures', 'procEdit', 'portfolio', 'portfolioCat', 'analytics', 'reports', 'search', 'health', 'bin', 'templates'];
+  const MORE_ROUTES = ['more', 'settings', 'backup', 'security', 'schedule', 'planEdit', 'procedures', 'procEdit', 'portfolio', 'portfolioCat', 'analytics', 'reports', 'search', 'health', 'bin', 'templates'];
   function dock() {
     const item = (route, icon, label, on) => h('button', { class: on ? 'on' : '', 'aria-label': label, onclick: () => go(route) }, [ic(icon), label]);
     const r = state.route;
@@ -1544,7 +1549,9 @@ const App = (() => {
   const X = {}; // functions provided by feature modules, filled in at start-up
   const restoreFlow = (...a) => X.restoreFlow(...a);
   /** Home → Add New Case: go straight to the blank form (the same as "Skip photo — enter manually"). */
-  function startManualCase() { go('add'); buildReview({ fields: {}, confidence: {}, raw: '' }); render(); }
+  function startManualCase() { startCaseFrom({}, {}); }
+  /** Open the blank case form, pre-filled from a planned case (fields = patient/consultant/date; patch = any case fields). */
+  function startCaseFrom(fields, patch) { go('add'); buildReview({ fields, confidence: {}, raw: '' }); Object.assign(state.pending, Object.fromEntries(Object.entries(patch || {}).filter(([, v]) => v !== undefined && v !== ''))); render(); }
   function initExtensions() {
     const ctx = {
       state, h, ic, ICONS, $, root, go, render, toast, openSheet, confirmSheet, pageHead, tile, barRows, donut, caseCard, chipGroup, toggleChips, dropdownList, field,
@@ -1552,7 +1559,7 @@ const App = (() => {
       hospitalList, activeCases, activePreops, activeProcedures, casesForDate, dutiesOn, dutiesInMonth, emptyFilters, applyFilters, suggestedFor,
       encOp, settingsOp, imageOp, saveSettings, putCase, putDuty, putPreopRec, putProcedure, putTemplate, persistCase, persistPreop, rememberLists,
       safeExport, openEdit, viewImage, confirmDelete, lockNow, defaultSettings, afterUnlock, reloadAll, prepareImages, applyTheme, openChangePin,
-      loadStore, X, nightDutyDate, addNightDuty, openDutySheet, recentTemplates, startManualCase, metaNow, unlockWithRaw, reencryptOps, setPinFromRaw, weakPin, clearLockout,
+      loadStore, X, nightDutyDate, addNightDuty, openDutySheet, recentTemplates, startManualCase, startCaseFrom, metaNow, unlockWithRaw, reencryptOps, setPinFromRaw, weakPin, clearLockout,
     };
     for (const f of window.V8Ext || []) { const r = f(ctx) || {}; Object.assign(SCREENS, r.screens || {}); Object.assign(X, r.api || {}); }
   }
