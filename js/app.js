@@ -74,6 +74,8 @@ const App = (() => {
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
     moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    cloud: '<path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5 1.5A3.8 3.8 0 0 0 6.5 19z"/>',
     star: '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
     grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
@@ -242,7 +244,16 @@ const App = (() => {
     const min = state.settings?.autoLockMin ?? 2;
     if (min > 0 && hiddenAt && Date.now() - hiddenAt > min * 60000) lockNow();
     lastActive = Date.now();
+    refreshIfNewDay();
   }
+  let shownDay;
+  const dayKey = () => todayISO() + ':' + (new Date().getHours() < 8 ? 'n' : 'd');
+  shownDay = dayKey();
+  function refreshIfNewDay() { if (state.key && dayKey() !== shownDay) { shownDay = dayKey(); if (state.route === 'home' && !document.querySelector('.sheet')) render(); } }
+  setInterval(refreshIfNewDay, 60000);
+  // Android pull-down-to-refresh would reload the page and re-lock the app: block it at the top of the page
+  (() => { let y0 = 0; document.addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchmove', (e) => { if (e.touches.length === 1 && e.touches[0].clientY > y0 && (window.scrollY || document.documentElement.scrollTop) <= 0) { let n = e.target; while (n && n !== document.body) { if (n.scrollTop > 0) return; n = n.parentNode; } if (e.cancelable) e.preventDefault(); } }, { passive: false }); })();
   /** Lock after N minutes with no touch/key/scroll, even if the app stays on screen. */
   function checkIdle() {
     if (!state.key) return;
@@ -304,7 +315,7 @@ const App = (() => {
       DB.status.mode === 'memory' ? h('div', { class: 'warnbar', style: 'max-width:340px;text-align:left' }, [h('b', {}, '⚠ Storage is blocked in this browser'), 'Records would be kept only in temporary memory and lost when you close this page. Open the app in Chrome (not a private or embedded window) before entering real data.']) : null,
       h('div', { class: 'box' }, [...fields, err, btn, extra]),
     ]));
-    setTimeout(() => fields[0] && fields[0].focus(), 60);
+    // no auto-focus: the keyboard would cover the screen on every open; tap the PIN box to type
   }
 
   const weakPin = (p) => /^(.)\1+$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p) || ['1212', '2580', '1122', '2000', '1004'].includes(p);
@@ -458,7 +469,7 @@ const App = (() => {
     if (!['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route)) root().appendChild(dock());
   }
 
-  const MORE_ROUTES = ['more', 'settings', 'backup', 'security', 'schedule', 'planEdit', 'procedures', 'procEdit', 'portfolio', 'portfolioCat', 'analytics', 'reports', 'search', 'health', 'bin', 'templates'];
+  const MORE_ROUTES = ['more', 'settings', 'backup', 'security', 'schedule', 'planEdit', 'thanc', 'procedures', 'procEdit', 'portfolio', 'portfolioCat', 'analytics', 'reports', 'search', 'health', 'bin', 'templates'];
   function dock() {
     const item = (route, icon, label, on) => h('button', { class: on ? 'on' : '', 'aria-label': label, onclick: () => go(route) }, [ic(icon), label]);
     const r = state.route;
@@ -634,7 +645,7 @@ const App = (() => {
     const nd = nightDutyDate(), existing = dutiesOn(nd)[0];
     screen.appendChild(h('button', { class: 'night-btn' + (existing ? ' on' : ''), id: 'nightBtn', onclick: () => (existing ? openDutySheet(existing) : addNightDuty(nd)) }, [
       h('span', { class: 'moon-badge' }, ic(existing ? 'check' : 'moon')),
-      h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : `Tap once to mark ${nd === today ? 'tonight' : fmtDay(nd)} on your calendar`)]),
+      h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : nd === today ? 'Tap once to mark tonight on your calendar' : `Tap to mark last night’s duty (${fmtDay(nd)})`)]),
       h('span', { class: 'go' }, ic(existing ? 'edit' : 'plus')),
     ]));
 

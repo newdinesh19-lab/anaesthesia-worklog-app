@@ -207,3 +207,12 @@ Navy / royal blue / teal / coral / purple palette, flat white cards with soft sh
 - **Limits (honest):** a PWA with no server cannot wake itself when fully closed. In-app/system alerts fire while the app is open or recently used. For guaranteed alerts when the app is closed, use **Add to calendar (.ics)** – it contains alarms for your phone calendar.
 - Plans are stored encrypted in the existing `templates` store (type `plan`), so backup, restore and PIN change include them. No schema change.
 - **Home-screen colour/icon:** the installed app caches its manifest; if the old green strip persists, remove and re-add the app to home screen (data is kept – same origin).
+
+## v9.2
+- Lock screen no longer auto-opens the keyboard. Pull-down on Android no longer reloads/re-locks the app. Home refreshes at midnight and 8am. Before 8am the night-duty card says "last night’s duty" with a "Mark tonight instead" option.
+
+## v9.3 — THANC Duty Tracker
+- **Home:** "THANC — Today's duty" sits under the Night duty card: Morning (default Dr. Dinesh + Dr. Arafath, 08:00–14:00), Evening (assign doctors, 14:00–20:00) and Night (default Dr. Karthik + Dr. Vignesh, 20:00–08:00). One tap marks a shift with its defaults; tap a card to expand (date, shift, start/end time pickers, doctors, notes, Save). Add other doctors by typing a name; remove with ×. **SAVE TODAY'S DUTY** saves every pending shift. Use ‹ › to enter another day.
+- **More → THANC Duty:** monthly calendar with coloured dots (amber morning, teal evening, purple night), day details with Edit, Summary (monthly totals and doctor-wise Morning/Evening/Night counts), History with search by doctor or date, CSV and Excel export.
+- **Storage:** encrypted `templates` store, record type `thanc`, one record per date + shift (`dutyId`, `hospital: THANC`, `date`, `shiftType`, `assignedDoctors`, `startTime`, `endTime`, `notes`, `createdAt`, `updatedAt`). No database version change; included in backup, restore and PIN change. Kept entirely separate from patient cases and from the personal Night duty feature. Changing the default doctors never alters saved duties.
+- **Limits:** the personal "Night duty" button and THANC duties are separate records. Excel export needs the SheetJS library to have loaded once online (CSV always works).

@@ -77,9 +77,12 @@
     const nd = ctx.nightDutyDate(), existing = ctx.dutiesOn(nd)[0];
     screen.appendChild(h('button', { class: 'night-btn' + (existing ? ' on' : ''), id: 'nightBtn', onclick: () => (existing ? ctx.openDutySheet(existing) : ctx.addNightDuty(nd)) }, [
       h('span', { class: 'moon-badge' }, ic(existing ? 'check' : 'moon')),
-      h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : `Tap once to mark ${nd === today ? 'tonight' : fmtDay(nd)}`)]),
+      h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : (nd === today ? 'Tap once to mark tonight' : `Tap to mark last night’s duty (${fmtDay(nd)})`))]),
       h('span', { class: 'go' }, ic(existing ? 'edit' : 'plus')),
     ]));
+    if (nd !== today && !existing && !ctx.dutiesOn(today)[0]) screen.appendChild(h('button', { class: 'chip', id: 'nightTonight', style: 'margin:-4px 0 12px', onclick: () => ctx.addNightDuty(today) }, `Mark tonight (${fmtDay(today)}) instead`));
+
+    if (X.thancHome) screen.appendChild(X.thancHome());
 
     if (X.schedHomeCard) screen.appendChild(X.schedHomeCard());
 
