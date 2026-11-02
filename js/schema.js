@@ -10,7 +10,7 @@
  */
 const Schema = (() => {
   const VERSION = 8;
-  const APP_VERSION = '9.3.0';
+  const APP_VERSION = '9.4.0';
   const uniq = (a) => [...new Set(a)];
 
   // ---------------------------------------------------------------- pick-lists

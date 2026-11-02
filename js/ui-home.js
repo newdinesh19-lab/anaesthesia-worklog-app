@@ -73,15 +73,6 @@
       qa('qa-purple', 'clip', 'Pre-op', 'Assessment', () => go('preop'), 'qaPreop'),
     ]));
 
-    // night duty one-tap (unchanged behaviour)
-    const nd = ctx.nightDutyDate(), existing = ctx.dutiesOn(nd)[0];
-    screen.appendChild(h('button', { class: 'night-btn' + (existing ? ' on' : ''), id: 'nightBtn', onclick: () => (existing ? ctx.openDutySheet(existing) : ctx.addNightDuty(nd)) }, [
-      h('span', { class: 'moon-badge' }, ic(existing ? 'check' : 'moon')),
-      h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : (nd === today ? 'Tap once to mark tonight' : `Tap to mark last night’s duty (${fmtDay(nd)})`))]),
-      h('span', { class: 'go' }, ic(existing ? 'edit' : 'plus')),
-    ]));
-    if (nd !== today && !existing && !ctx.dutiesOn(today)[0]) screen.appendChild(h('button', { class: 'chip', id: 'nightTonight', style: 'margin:-4px 0 12px', onclick: () => ctx.addNightDuty(today) }, `Mark tonight (${fmtDay(today)}) instead`));
-
     if (X.thancHome) screen.appendChild(X.thancHome());
 
     if (X.schedHomeCard) screen.appendChild(X.schedHomeCard());
@@ -93,7 +84,7 @@
     const cards = [
       statCard('blue', 'list', monthCases.length, 'Cases this month', monthLabel(ym), () => openCases({})),
       statCard('teal', 'calendar', todayCases.length, 'Cases today', fmtDay(today), () => go('day', today)),
-      statCard('indigo', 'moon', duties.length, 'Night duties', 'this month', () => { state.casesView = 'calendar'; state.filters = ctx.emptyFilters(ym); go('cases'); }),
+      statCard('indigo', 'moon', Thanc.inMonth(Thanc.recordsOf(state.templates), ym).length, 'THANC duties', 'shifts this month', () => go('thanc')),
       statCard('coral', 'warn', pending.length, 'Pending entries', pending.length ? 'missing surgery, ASA or technique' : 'all complete', pending.length ? () => { state.casesView = 'list'; state.filters = { ...ctx.emptyFilters(''), incomplete: true }; go('cases'); } : null),
       statCard('purple', 'syringe', procsM.length, 'Procedures', 'logged this month', () => go('procedures')),
     ];

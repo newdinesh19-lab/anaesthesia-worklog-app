@@ -246,6 +246,16 @@ const App = (() => {
     lastActive = Date.now();
     refreshIfNewDay();
   }
+  // floating "scroll to top / bottom" button for long screens
+  const fab = h('button', { class: 'scroll-fab', id: 'scrollFab', 'aria-label': 'Scroll', onclick: () => { const top = window.scrollY > 250; window.scrollTo({ top: top ? 0 : document.documentElement.scrollHeight, behavior: 'smooth' }); } });
+  function updateFab() {
+    const long = document.documentElement.scrollHeight > window.innerHeight * 1.5, up = window.scrollY > 250;
+    const show = !!state.key && long && !document.querySelector('.sheet-back');
+    if (!fab.isConnected) document.body.appendChild(fab);
+    fab.classList.toggle('show', show); fab.classList.toggle('up', up); fab.innerHTML = ''; fab.appendChild(ic('chev'));
+    fab.setAttribute('aria-label', up ? 'Scroll to top' : 'Scroll to bottom');
+  }
+  window.addEventListener('scroll', () => { if (fab.isConnected) { const up = window.scrollY > 250; if (fab.classList.contains('up') !== up) updateFab(); } }, { passive: true });
   let shownDay;
   const dayKey = () => todayISO() + ':' + (new Date().getHours() < 8 ? 'n' : 'd');
   shownDay = dayKey();
@@ -466,6 +476,8 @@ const App = (() => {
     root().appendChild(screen);
     banners().forEach((b) => screen.appendChild(b));
     (SCREENS[state.route] || renderHome)(screen);
+    if (['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route) && !screen.querySelector('.page-head .icon-btn[aria-label="Back"]')) screen.insertBefore(h('button', { class: 'back-link', id: 'topBack', onclick: () => (history.length > 1 ? history.back() : go('home')) }, [ic('left'), 'Back']), screen.firstChild);
+    setTimeout(updateFab, 0);
     if (!['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route)) root().appendChild(dock());
   }
 
@@ -641,14 +653,6 @@ const App = (() => {
       if (days && all.length && (age === null || age >= days)) screen.appendChild(h('button', { class: 'warnbar', id: 'backupRemind', style: 'width:100%;text-align:left', onclick: () => go('backup') }, [ic('warn', 'inl'), age === null ? ' You have never backed up. Your data lives only on this phone — tap to back up.' : ` Last backup was ${age} days ago. Tap to back up now.`]));
     }
     { const n = X.homeNudge && X.homeNudge(); if (n) screen.appendChild(n); }
-    // one-tap night duty
-    const nd = nightDutyDate(), existing = dutiesOn(nd)[0];
-    screen.appendChild(h('button', { class: 'night-btn' + (existing ? ' on' : ''), id: 'nightBtn', onclick: () => (existing ? openDutySheet(existing) : addNightDuty(nd)) }, [
-      h('span', { class: 'moon-badge' }, ic(existing ? 'check' : 'moon')),
-      h('span', {}, [h('b', {}, existing ? 'On night duty' : 'Night duty'), h('small', {}, existing ? `${fmtDay(nd)} · ${existing.hospital || 'tap to edit'}` : nd === today ? 'Tap once to mark tonight on your calendar' : `Tap to mark last night’s duty (${fmtDay(nd)})`)]),
-      h('span', { class: 'go' }, ic(existing ? 'edit' : 'plus')),
-    ]));
-
     screen.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, 'One-tap templates'), h('span', { class: 'muted', style: 'font-size:13px' }, 'surgery + mode')]));
     const tpls = recentTemplates(3);
     const row = h('div', { class: 'tpl-row' });
@@ -1147,7 +1151,7 @@ const App = (() => {
     const cross = Stats.consultantByAnaesthetist(cases);
     const toCases = (patch) => { state.casesView = 'list'; state.filters = { ...emptyFilters(ym), ...patch }; go('cases'); };
 
-    screen.appendChild(pageHead('Reports', monthLabel(ym)));
+    screen.appendChild(pageHead('Reports', monthLabel(ym), null, 'more'));
     screen.appendChild(h('div', { class: 'month-nav' }, [
       h('button', { class: 'icon-btn', 'aria-label': 'Previous month', onclick: () => { state.reportMonth = shiftMonth(ym, -1); render(); } }, ic('left')),
       h('b', {}, monthLabel(ym)),

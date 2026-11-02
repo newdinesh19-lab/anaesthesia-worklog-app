@@ -216,3 +216,7 @@ Navy / royal blue / teal / coral / purple palette, flat white cards with soft sh
 - **More → THANC Duty:** monthly calendar with coloured dots (amber morning, teal evening, purple night), day details with Edit, Summary (monthly totals and doctor-wise Morning/Evening/Night counts), History with search by doctor or date, CSV and Excel export.
 - **Storage:** encrypted `templates` store, record type `thanc`, one record per date + shift (`dutyId`, `hospital: THANC`, `date`, `shiftType`, `assignedDoctors`, `startTime`, `endTime`, `notes`, `createdAt`, `updatedAt`). No database version change; included in backup, restore and PIN change. Kept entirely separate from patient cases and from the personal Night duty feature. Changing the default doctors never alters saved duties.
 - **Limits:** the personal "Night duty" button and THANC duties are separate records. Excel export needs the SheetJS library to have loaded once online (CSV always works).
+
+## v9.4
+- Removed the Home "Night duty" button (and "Mark tonight instead"); THANC duty replaces it. Old night-duty records stay stored and visible in Cases → Calendar and in exports. The Home "Night duties" tile is now "THANC duties" (shifts this month).
+- Floating scroll button (down/up) on long screens; "Back" link on the Add/Pre-op/Procedure/Plan forms; Back on Reports.
