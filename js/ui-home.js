@@ -89,7 +89,7 @@
       statCard('purple', 'syringe', procsM.length, 'Procedures', 'logged this month', () => go('procedures')),
     ];
     if (timed.length) cards.push(statCard('navy', 'pulse', h('span', { class: 'num' }, fmtHours(totalMin)), 'Anaesthesia hours', `${timed.length} timed case${timed.length === 1 ? '' : 's'}`));
-    screen.appendChild(h('div', { class: 'stats' }, cards));
+    screen.appendChild(ctx.fold({ id: 'stats', title: 'This month', summary: `${monthCases.length} case${monthCases.length === 1 ? '' : 's'} · ${pending.length} pending` }, [h('div', { class: 'stats' }, cards)]));
 
     // quick repeat
     const tpls = ctx.recentTemplates(3);
@@ -99,7 +99,6 @@
     }
 
     // D. analytics (only with real data)
-    screen.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, 'Analytics'), h('button', { onclick: () => go('analytics') }, 'Full report →')]));
     const grid = h('div', { class: 'an-grid' }); let shown = 0;
     const last7 = []; for (let i = 6; i >= 0; i--) last7.push(shiftDay(today, -i));
     const dayCount = (d) => ctx.casesForDate(d).length;
@@ -120,28 +119,29 @@
     const tech = A.entries(sum.techniques);
     if (tech.length) { shown++; grid.appendChild(h('div', { class: 'card' }, [h('h3', {}, `Technique · ${monthLabel(ym)}`), X.hbars(tech, { pct: true, onTap: (n) => openCases({ mode: n }) })])); }
     if (sum.urgencyKnown) { shown++; grid.appendChild(h('div', { class: 'card' }, [h('h3', {}, `Elective vs emergency · ${monthLabel(ym)}`), X.donutChart([['Elective', sum.elective], ['Emergency', sum.emergency]].filter((e) => e[1] > 0), { onTap: (n) => openCases({ urgency: n }) })])); }
-    screen.appendChild(shown ? grid : h('div', { class: 'empty' }, [ic('pie'), h('div', {}, 'Charts appear here once you have logged some cases.')]));
+    screen.appendChild(ctx.fold({ id: 'analytics', title: 'Analytics', right: h('button', { onclick: () => go('analytics') }, 'Full report →'), summary: 'Charts hidden' }, [shown ? grid : h('div', { class: 'empty' }, [ic('pie'), h('div', {}, 'Charts appear here once you have logged some cases.')])]));
 
     // E. recent cases
     const recent = [...all].sort((a, b) => b.case_date.localeCompare(a.case_date) || b.created_at.localeCompare(a.created_at)).slice(0, 6);
-    screen.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, 'Recent cases'), h('button', { onclick: () => go('cases') }, 'All cases →')]));
+    const recentFold = (nodes) => ctx.fold({ id: 'recent', title: 'Recent cases', right: h('button', { onclick: () => go('cases') }, 'All cases →'), summary: recent.length + ' recent' }, nodes);
     if (!recent.length) {
-      screen.appendChild(h('div', { class: 'empty' }, [ic('clip'), h('div', {}, 'No cases yet. Add your first case to get started.'), h('button', { class: 'btn btn-primary', style: 'margin-top:12px', onclick: () => ctx.startManualCase() }, [ic('plus'), 'Add a case'])]));
+      screen.appendChild(recentFold([h('div', { class: 'empty' }, [ic('clip'), h('div', {}, 'No cases yet. Add your first case to get started.'), h('button', { class: 'btn btn-primary', style: 'margin-top:12px', onclick: () => ctx.startManualCase() }, [ic('plus'), 'Add a case'])])]));
       return;
     }
     const pillFor = (c) => { const [t, k] = statusOf(c); return h('span', { class: 'status st-' + k }, t); };
     const id = (c) => c.uhid || c.patient_name || '—';
-    screen.appendChild(h('div', { class: 'recent-cards' }, recent.map((c) => h('button', { class: 'rc ' + toneOf(c.anaesthetist), onclick: () => go('day', c.case_date) }, [
+    const rcards = (h('div', { class: 'recent-cards' }, recent.map((c) => h('button', { class: 'rc ' + toneOf(c.anaesthetist), onclick: () => go('day', c.case_date) }, [
       h('div', { class: 'rc-top' }, [h('b', {}, c.patient_name || id(c)), pillFor(c)]),
       h('div', { class: 'rc-sub' }, [fmtDate(c.case_date), c.uhid ? ` · ${c.uhid}` : '', c.surgery ? ` · ${c.surgery}` : '']),
       h('div', { class: 'rc-meta' }, [h('span', { class: 'pill ' + toneOf(c.anaesthetist) }, shortName(c.anaesthetist)), h('span', { class: 'muted' }, techShort(c))]),
     ]))));
     const th = (t) => h('th', {}, t);
-    screen.appendChild(h('div', { class: 'recent-table card' }, h('table', { class: 'rtable' }, [
+    const rtable = (h('div', { class: 'recent-table card' }, h('table', { class: 'rtable' }, [
       h('thead', {}, h('tr', {}, ['Date', 'Patient', 'Surgery', 'Technique', 'Anaesthetist', 'Status'].map(th))),
       h('tbody', {}, recent.map((c) => h('tr', { tabindex: '0', onclick: () => go('day', c.case_date), onkeydown: (e) => e.key === 'Enter' && go('day', c.case_date) }, [
         h('td', {}, fmtDate(c.case_date)), h('td', {}, [h('b', {}, c.patient_name || '—'), c.uhid ? h('small', { class: 'muted', style: 'display:block' }, c.uhid) : null]), h('td', {}, c.surgery || '—'), h('td', {}, techShort(c)),
         h('td', {}, h('span', { class: 'pill ' + toneOf(c.anaesthetist) }, shortName(c.anaesthetist))), h('td', {}, pillFor(c))])))])));
+    screen.appendChild(recentFold([rcards, rtable]));
   }
 
   return { screens: { home: renderHome }, api: { homeAlerts: alerts } };

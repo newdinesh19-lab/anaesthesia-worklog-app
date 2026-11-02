@@ -163,11 +163,12 @@
   function homeCard() {
     const up = Sc.upcoming(plans()), now = new Date(), horizon = new Date(now.getTime() + 7 * 864e5);
     const soon = up.filter((p) => Sc.startOf(p) <= horizon).slice(0, 3);
-    const head = h('div', { class: 'section-title', style: 'margin-top:4px' }, [h('h2', {}, 'Planned cases'), h('button', { id: 'planAllLink', onclick: () => go('schedule') }, 'Calendar →')]);
+    const link = h('button', { id: 'planAllLink', onclick: () => go('schedule') }, 'Calendar →');
     const rows = soon.length ? soon.map((p) => h('button', { class: 'plan-row', onclick: () => { ui.tab = 'upcoming'; go('schedule'); } }, [
       h('span', { class: 'plan-date' }, [h('b', {}, new Date(...p.date.split('-').map((x, i) => (i === 1 ? x - 1 : +x))).getDate()), h('small', {}, ctx.MON[Number(p.date.slice(5, 7)) - 1])]),
       h('span', { class: 'plan-main' }, [h('b', {}, p.surgery || 'Planned case'), h('small', {}, `${fmtTime(p.time)} · ${where(p)}`)]), h('span', { class: 'status st-ok' }, Sc.until(p, now))])) : [h('div', { class: 'plan-empty muted' }, up.length ? `Next: ${fmtDay(up[0].date)} · ${up[0].surgery || 'planned case'}` : 'No upcoming cases planned.')];
-    return h('div', { class: 'card plan-card', id: 'planCard' }, [head, ...rows, h('button', { class: 'btn btn-soft btn-block', id: 'planNew', style: 'margin-top:8px', onclick: () => newPlan() }, [ic('plus'), 'Plan a case — when & where'])]);
+    const nextP = up[0]; const sum = nextP ? `${up.length} upcoming · next ${fmtDay(nextP.date)}` : 'Nothing planned';
+    return ctx.fold({ id: 'plans', title: 'Planned cases', right: link, summary: sum }, [h('div', { class: 'card plan-card', id: 'planCard' }, [...rows, h('button', { class: 'btn btn-soft btn-block', id: 'planNew', style: 'margin-top:8px', onclick: () => newPlan() }, [ic('plus'), 'Plan a case — when & where'])])]);
   }
   const alertsFor = () => { const now = new Date(); const t = Sc.upcoming(plans()).filter((p) => p.date === todayISO()); return t.length ? [{ tone: 'info', icon: 'calendar', title: `${t.length} case${t.length === 1 ? '' : 's'} planned today`, text: `Next at ${fmtTime(t[0].time)} · ${where(t[0])}`, action: 'Open', go: () => go('schedule') }] : []; };
 

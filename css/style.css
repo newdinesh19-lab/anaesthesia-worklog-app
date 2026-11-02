@@ -554,3 +554,13 @@ html, body { overscroll-behavior-y: none; }
 .scroll-fab { position: fixed; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 96px); z-index: 40; width: 44px; height: 44px; border-radius: 50%; background: var(--card); color: var(--brand); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(15, 23, 42, .22); display: none; place-items: center; }
 .scroll-fab.show { display: grid; } .scroll-fab svg { width: 22px; height: 22px; transform: rotate(90deg); transition: transform .2s; } .scroll-fab.up svg { transform: rotate(-90deg); }
 .back-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--brand); padding: 6px 4px; margin-bottom: 4px; } .back-link svg { width: 18px; height: 18px; }
+
+/* v9.5: collapsible sections & compact duty rows */
+.fold-head { align-items: center; } .fold-t { display: inline-flex; align-items: center; gap: 6px; text-align: left; } .fold-t h2 { margin: 0; }
+.fold-chev { display: grid; color: var(--muted); transition: transform .2s; transform: rotate(90deg); } .fold-chev svg { width: 18px; height: 18px; } .fold-head.closed .fold-chev { transform: rotate(0deg); }
+.fold-sum { display: block; color: var(--muted); font-size: 12.5px; margin: -4px 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fold-body[hidden], .fold-sum[hidden] { display: none; }
+.th-card.compact { padding: 6px 10px; margin-bottom: 6px; border-radius: 14px; } .th-card.compact .th-head { padding: 2px 0; }
+.th-card.compact .th-t b { font-size: 14px; } .th-card.compact .th-t small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-done { opacity: .55; min-height: 40px; }
+.fold-t, .fold-t h2 { color: var(--ink); }

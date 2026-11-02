@@ -220,3 +220,7 @@ Navy / royal blue / teal / coral / purple palette, flat white cards with soft sh
 ## v9.4
 - Removed the Home "Night duty" button (and "Mark tonight instead"); THANC duty replaces it. Old night-duty records stay stored and visible in Cases → Calendar and in exports. The Home "Night duties" tile is now "THANC duties" (shifts this month).
 - Floating scroll button (down/up) on long screens; "Back" link on the Add/Pre-op/Procedure/Plan forms; Back on Reports.
+
+## v9.5
+- Collapsible Home sections (THANC duty, Planned cases, This month, Analytics, Recent cases). The open/closed choice is remembered on this phone; a one-line summary shows when closed.
+- THANC shifts that are saved collapse to one compact row (time + doctors); tap a row to expand and edit.

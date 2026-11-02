@@ -122,6 +122,12 @@
     ]);
     const quickLabel = shift === 'night' ? (date === today() ? 'MARK TONIGHT’S DUTY' : 'MARK NIGHT DUTY') : `Mark ${meta.label.toLowerCase()} duty`;
     const quick = (!d.saved || d.dirty) ? h('button', { class: 'btn th-mark' + (shift === 'night' ? ' big' : ''), 'data-mark': shift, onclick: async () => { if (!d.doctors.length) return quickSheet(date, shift); const rec = findRec(Th.idFor(date, shift)); if (await persist(date, shift, d, rec && !rec.deleted_at ? rec : null)) { ctx.render(); toast(meta.label + ' duty saved'); } } }, [ic('check'), quickLabel]) : null;
+    if (d.saved && !d.dirty && !open) return h('div', { class: `th-card compact th-${meta.tone}`, id: 'th-' + shift }, [
+      h('button', { class: 'th-head', 'aria-expanded': false, onclick: () => { ui.open[shift] = true; ctx.render(); } }, [
+        h('span', { class: 'th-ic sm' }, icon(shift)),
+        h('span', { class: 'th-t' }, [h('b', {}, meta.label), h('small', {}, `${timeRange(d.start, d.end)} · ${d.doctors.map(Th.shortName).join(', ') || '—'}`)]),
+        h('span', { class: 'th-pill ok' }, ic('check')), h('span', { class: 'th-chev' }, ic('chev'))]),
+    ]);
     return h('div', { class: `th-card th-${meta.tone}` + (open ? ' open' : ''), id: 'th-' + shift }, [
       h('button', { class: 'th-head', 'aria-expanded': open, onclick: () => { ui.open[shift] = !open; ctx.render(); } }, [
         h('span', { class: 'th-ic' }, icon(shift)), h('span', { class: 'th-t' }, [h('b', {}, meta.label + (shift === 'night' ? ' duty' : ' shift')), h('small', {}, timeRange(d.start, d.end))]), status, h('span', { class: 'th-chev' }, ic('chev')),
@@ -143,12 +149,12 @@
       h('button', { class: 'icon-btn', 'aria-label': 'Next day', onclick: () => { ui.date = shiftDay(date, 1); resetDrafts(); ctx.render(); } }, ic('chev')),
     ]);
     const pending = Th.SHIFTS.filter((s) => { const d = draftFor(date, s.id); return d.doctors.length && (!d.saved || d.dirty); });
-    return h('div', { class: 'th-section', id: 'thanc' }, [
-      h('div', { class: 'section-title', style: 'margin:6px 0 8px' }, [h('h2', {}, 'THANC — Today’s duty'), h('button', { id: 'thLink', onclick: () => go('thanc') }, 'Calendar →')]),
+    const sumTxt = Th.SHIFTS.map((s) => { const d = draftFor(date, s.id); return `${s.label[0]}: ${d.doctors.length ? d.doctors.map(Th.shortName).join(', ') : '—'}${d.saved && !d.dirty ? '' : '*'}`; }).join('  ·  ');
+    return h('div', { class: 'th-section', id: 'thanc' }, [ctx.fold({ id: 'thanc', title: 'THANC — Today’s duty', right: h('button', { id: 'thLink', onclick: () => go('thanc') }, 'Calendar →'), summary: sumTxt }, [
       nav,
-      Th.SHIFTS.map((s) => s.id).map((s) => shiftCard(date, s)),
-      h('button', { class: 'btn btn-primary btn-block', id: 'thSaveAll', disabled: !pending.length, onclick: async () => { let n = 0; for (const s of pending) { const d = draftFor(date, s.id); const rec = findRec(Th.idFor(date, s.id)); if (await persist(date, s.id, d, rec && !rec.deleted_at ? rec : null)) n++; } ctx.render(); toast(n ? `Saved ${n} duty entr${n === 1 ? 'y' : 'ies'}` : 'Nothing to save'); } }, [ic('check'), pending.length ? `SAVE TODAY’S DUTY (${pending.length})` : 'ALL DUTY SAVED']),
-    ].flat());
+      ...Th.SHIFTS.map((s) => shiftCard(date, s.id)),
+      h('button', { class: 'btn btn-primary btn-block' + (pending.length ? '' : ' th-done'), id: 'thSaveAll', disabled: !pending.length, onclick: async () => { let n = 0; for (const s of pending) { const d = draftFor(date, s.id); const rec = findRec(Th.idFor(date, s.id)); if (await persist(date, s.id, d, rec && !rec.deleted_at ? rec : null)) n++; } ctx.render(); toast(n ? `Saved ${n} duty entr${n === 1 ? 'y' : 'ies'}` : 'Nothing to save'); } }, [ic('check'), pending.length ? `SAVE TODAY’S DUTY (${pending.length})` : 'ALL DUTY SAVED']),
+    ])]);
   }
 
   // ------------------------------------------------------------------ THANC screen

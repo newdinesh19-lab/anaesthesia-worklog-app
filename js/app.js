@@ -494,6 +494,18 @@ const App = (() => {
     ]);
   }
 
+  // collapsible section (state remembered on this device only)
+  const foldGet = (id, def) => { try { const v = localStorage.getItem('fold-' + id); return v === null ? def : v === '1'; } catch (e) { return def; } };
+  const foldSet = (id, on) => { try { localStorage.setItem('fold-' + id, on ? '1' : '0'); } catch (e) { /* ignore */ } };
+  function fold({ id, title, right, summary, open = true }, nodes) {
+    let on = foldGet(id, open);
+    const body = h('div', { class: 'fold-body' }, nodes), sum = h('small', { class: 'fold-sum' }, summary || '');
+    const sync = () => { body.hidden = !on; sum.hidden = on || !summary; head.classList.toggle('closed', !on); btn.setAttribute('aria-expanded', String(on)); };
+    const btn = h('button', { class: 'fold-t', 'data-fold': id, onclick: () => { on = !on; foldSet(id, on); sync(); } }, [h('h2', {}, title), h('span', { class: 'fold-chev' }, ic('chev'))]);
+    const head = h('div', { class: 'section-title fold-head' }, [btn, right || null]);
+    const box = h('div', { class: 'fold', id: 'fold-' + id }, [head, sum, body]); sync(); return box;
+  }
+
   function pageHead(title, sub, right, back) {
     return h('div', { class: 'page-head' }, [
       back ? h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: () => (history.length > 1 ? history.back() : go(back)) }, ic('left')) : h('div', { class: 'logo' }, ic('clip')),
@@ -1569,7 +1581,7 @@ const App = (() => {
   function startCaseFrom(fields, patch) { go('add'); buildReview({ fields, confidence: {}, raw: '' }); Object.assign(state.pending, Object.fromEntries(Object.entries(patch || {}).filter(([, v]) => v !== undefined && v !== ''))); render(); }
   function initExtensions() {
     const ctx = {
-      state, h, ic, ICONS, $, root, go, render, toast, openSheet, confirmSheet, pageHead, tile, barRows, donut, caseCard, chipGroup, toggleChips, dropdownList, field,
+      state, h, ic, ICONS, fold, $, root, go, render, toast, openSheet, confirmSheet, pageHead, tile, barRows, donut, caseCard, chipGroup, toggleChips, dropdownList, field,
       pad, isoOf, parseISO, todayISO, fmtDate, fmtDay, monthLabel, shiftMonth, shiftDay, uid, shortName, initials, toneOf, TONE_VAR, DOW, MON, MONTHS,
       hospitalList, activeCases, activePreops, activeProcedures, casesForDate, dutiesOn, dutiesInMonth, emptyFilters, applyFilters, suggestedFor,
       encOp, settingsOp, imageOp, saveSettings, putCase, putDuty, putPreopRec, putProcedure, putTemplate, persistCase, persistPreop, rememberLists,
