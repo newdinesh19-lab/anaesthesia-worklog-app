@@ -224,3 +224,21 @@ Navy / royal blue / teal / coral / purple palette, flat white cards with soft sh
 ## v9.5
 - Collapsible Home sections (THANC duty, Planned cases, This month, Analytics, Recent cases). The open/closed choice is remembered on this phone; a one-line summary shows when closed.
 - THANC shifts that are saved collapse to one compact row (time + doctors); tap a row to expand and edit.
+
+## v10.0.0 — Duty management + photo editor
+
+**THANC duty analytics (Cases → Calendar → THANC tabs: Calendar · Analytics · History · Doctors · Data)**
+- Morning/Evening/Night counts per doctor, totals, month / quarter / calendar year (Financial Year Apr–Mar switch), highest/lowest, one doctor or all.
+- Hours come only from recorded start/end times (per-doctor overrides supported). End earlier than start = overnight; end = start is invalid; missing/invalid times are flagged, never guessed.
+- A duty counts once in the month it starts; its hours are split at midnight between calendar months.
+- Defaults: Morning = Dr. Dinesh + Dr. Arafath; Night = all four (one tap). Doctors can be added, deactivated, merged. Every edit is audit-logged; deletes are soft (restorable).
+- Data tab: preview-then-import of old personal night duties marked THANC (as Dr. Dinesh), duplicate-safe, with batch rollback. Nothing is deleted or overwritten.
+- Exports: PDF, Excel, CSV (summary + line-level + audit).
+
+**Photo editor (offline)** — shown after every camera/upload in Add Case, extra case pages and Pre-op photos: rotate ±90°, crop (drag handles), brightness, contrast, reset, preview, "Use original", cancel. EXIF orientation is corrected automatically; output is JPEG (long side ≤ 2400 px, quality 0.9, PNG/transparent → white background). The picked file is never modified; OCR runs on the edited image.
+- A case can hold several pages (first page = OCR source; "Add page" in review/edit). Gallery: Case → Photo.
+- Saved photos can be rotated/edited later (Rotate left/right/Edit) — only after an explicit "Replace photo" confirmation. The replaced version is **not** kept.
+
+Schema: no IndexedDB version change. New optional fields: `case.photos[]` (extra image keys `caseId:xxxxxxxx`), THANC v2 record fields. Older data and backups remain readable.
+
+Limits: not tested on a physical Android device (Chromium emulation only); very large photos are downscaled to 2400 px.

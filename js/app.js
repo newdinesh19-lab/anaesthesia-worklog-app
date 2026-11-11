@@ -131,11 +131,11 @@ const App = (() => {
     return close;
   }
 
-  function confirmSheet({ title, text, okLabel = 'Confirm', danger = false, onOk }) {
+  function confirmSheet({ title, text, okLabel = 'Confirm', danger = false, onOk, onCancel }) {
     const close = openSheet(title, h('div', {}, [
       h('p', {}, text),
       h('div', { class: 'btn-row' }, [
-        h('button', { class: 'btn', onclick: () => close() }, 'Cancel'),
+        h('button', { class: 'btn', onclick: () => { close(); onCancel && onCancel(); } }, 'Cancel'),
         h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), onclick: () => { close(); onOk && onOk(); } }, okLabel),
       ]),
     ]));
@@ -202,10 +202,13 @@ const App = (() => {
   }
 
   /** Case + photo + remembered lists are written in ONE transaction. */
-  async function persistCase(c, image) {
+  async function persistCase(c, image, extras) {
     c.schema_version = Schema.VERSION;
+    const extraOps = [];
+    for (const im of extras || []) { const key = `${c.case_id}:${uid().slice(0, 8)}`; c.photos = [...(c.photos || []), key]; extraOps.push(await imageOp(key, im)); }
     const ops = [await encOp('cases', c)];
     if (image) ops.push(await imageOp(c.case_id, image));
+    ops.push(...extraOps);
     if (rememberLists({ hospital: c.hospital, surgery: c.surgery, mode: c.anaesthesia_mode, consultant: c.consultant })) ops.push(await settingsOp());
     await DB.batch(ops);
   }
@@ -459,7 +462,7 @@ const App = (() => {
     if (s && s.route && s.route !== 'add') { state.route = s.route; state.param = s.param; } else { state.route = 'home'; state.param = null; }
     render();
   }
-  function revokeImage() { if (state.pendingImage?.url) URL.revokeObjectURL(state.pendingImage.url); state.pendingImage = null; }
+  function revokeImage() { if (state.pendingImage?.url) URL.revokeObjectURL(state.pendingImage.url); state.pendingImage = null; revokeExtras(); }
 
   const SCREENS = { home: renderHome, add: renderAdd, cases: renderCases, day: renderDay, monthly: renderReports, settings: renderSettings, preop: renderPreopList, preopEdit: renderPreopEdit };
 
@@ -739,6 +742,28 @@ const App = (() => {
     screen.appendChild(h('div', { class: 'center' }, h('button', { class: 'link', onclick: () => { buildReview({ fields: {}, confidence: {}, raw: '' }); render(); } }, 'Skip photo — enter manually')));
   }
 
+  /** Opens the photo editor on a picked/captured file. Returns the blob to use (edited or original), or null if cancelled. */
+  async function editPhoto(file, title) {
+    const r = await ImageEditor.open({ blob: file, title: title || 'Edit photo', saveLabel: 'Use this photo' });
+    return r ? r.blob : null;
+  }
+  const photoKeys = (c) => [...new Set([c.case_id, ...(c.photos || [])])];
+  function revokeExtras() { for (const im of state.pendingExtra || []) if (im.url) URL.revokeObjectURL(im.url); state.pendingExtra = []; }
+
+  /** Edit (rotate/crop/brightness/contrast) a photo that is already saved. Nothing changes unless the person confirms the replacement. */
+  async function editSavedImage(key, rotate) {
+    const rec = await DB.get('images', key);
+    if (!rec) return toast('Photo not found');
+    const buf = await CryptoModule.decryptBinary(state.key, { iv: rec.iv, data: rec.data });
+    const r = await ImageEditor.open({ blob: new Blob([buf], { type: rec.mimeType }), title: 'Edit saved photo', saveLabel: 'Replace saved photo', rotate, allowOriginal: false });
+    if (!r || !r.edited) return false;
+    return await new Promise((resolve) => confirmSheet({ title: 'Replace the saved photo?', text: 'The edited version will replace the stored photo for this record. The original cannot be recovered afterwards.', okLabel: 'Replace photo', onOk: async () => {
+      const ab = await r.blob.arrayBuffer();
+      await DB.batch([await imageOp(key, { arrayBuffer: ab, mimeType: r.blob.type || 'image/jpeg' })]);
+      toast('Saved photo updated'); resolve(true);
+    }, onCancel: () => resolve(false) }));
+  }
+
   async function prepareImages(file) {
     // Downscale to ~1800px: faster OCR and smaller encrypted storage.
     try {
@@ -752,7 +777,10 @@ const App = (() => {
   }
 
   async function onImageChosen(e) {
-    const file = e.target.files[0];
+    let file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    file = await editPhoto(file, 'Edit sheet photo');
     if (!file) return;
     const status = $('#ocrStatus');
     const bar = h('i');
@@ -834,12 +862,39 @@ const App = (() => {
     return card;
   }
 
+  /** Extra pages for this case (the first photo drives OCR; more can be added, each edited before saving). */
+  function photosCard(c, editing) {
+    const strip = h('div', { class: 'photo-strip' });
+    const paint = () => {
+      strip.innerHTML = '';
+      (state.pendingExtra || []).forEach((im, i) => strip.appendChild(h('div', { class: 'ph' }, [h('img', { src: im.url, alt: `Page ${i + 2}`, onclick: () => openSheet('Photo', h('img', { src: im.url })) }), h('button', { class: 'x', 'aria-label': 'Remove page', onclick: () => { URL.revokeObjectURL(im.url); state.pendingExtra.splice(i, 1); paint(); } }, '✕')])));
+    };
+    async function onExtra(e) {
+      let file = e.target.files[0]; e.target.value = ''; if (!file) return;
+      file = await editPhoto(file, 'Edit extra page'); if (!file) return;
+      const { store } = await prepareImages(file);
+      (state.pendingExtra = state.pendingExtra || []).push({ arrayBuffer: await store.arrayBuffer(), mimeType: store.type || 'image/jpeg', url: URL.createObjectURL(store) });
+      paint();
+    }
+    paint();
+    const nSaved = editing ? (c.photos || []).length + 1 : 0;
+    return h('div', { class: 'card', id: 'casePhotos' }, [h('h3', {}, 'Photos'),
+      editing ? h('button', { class: 'btn btn-block', id: 'viewSavedCase', style: 'margin-bottom:10px', onclick: () => viewImage(c.case_id) }, [ic('eye'), `View / edit saved photos`]) : null,
+      !editing && state.pendingImage?.url ? h('img', { class: 'thumb', src: state.pendingImage.url, alt: 'Registration sheet', onclick: () => openSheet('Original sheet', h('img', { src: state.pendingImage.url })) }) : null,
+      strip,
+      h('div', { class: 'cap-btns' }, [
+        h('label', { class: 'btn btn-sm' }, [ic('camera'), 'Add page (camera)', h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'hidden-file', id: 'caseExtraCam', onchange: onExtra })]),
+        h('label', { class: 'btn btn-sm' }, [ic('image'), 'Add page (upload)', h('input', { type: 'file', accept: 'image/*', class: 'hidden-file', id: 'caseExtraUp', onchange: onExtra })]),
+      ])]);
+  }
+
   function renderReview(screen) {
     const c = state.pending;
     const editing = !!state.editingId;
     screen.appendChild(pageHead(editing ? 'Edit Case' : 'Review Case', editing ? 'Update details' : 'Step 2 of 2 · check & save', null, 'home'));
 
     if (state.pendingImage?.url) screen.appendChild(h('img', { class: 'thumb', src: state.pendingImage.url, alt: 'Registration sheet', onclick: () => openSheet('Original sheet', h('img', { src: state.pendingImage.url })) }));
+    screen.appendChild(photosCard(c, editing));
     screen.appendChild(X.entryModeToggle());
     const strip = X.templateStrip(c); if (strip) screen.appendChild(strip);
 
@@ -908,7 +963,7 @@ const App = (() => {
     if (!c.notable) { c.notable_type = ''; c.notable_note = ''; }
     if ((c.techniques || []).length) c.anaesthesia_mode = Schema.modeFromTechniques(c.techniques);
     c.postop = c.postop || {}; if (c.postop.pain === '' || c.postop.pain == null) delete c.postop.pain;
-    await persistCase(c, isEdit ? null : state.pendingImage);
+    await persistCase(c, isEdit ? null : state.pendingImage, state.pendingExtra);
     const idx = state.cases.findIndex((x) => x.case_id === c.case_id);
     idx >= 0 ? (state.cases[idx] = c) : state.cases.push(c);
     const n = casesForDate(c.case_date).findIndex((x) => x.case_id === c.case_id) + 1;
@@ -942,12 +997,24 @@ const App = (() => {
   }
 
   async function viewImage(id) {
-    const rec = await DB.get('images', id);
-    if (!rec) return toast('No photo stored for this case');
-    const buf = await CryptoModule.decryptBinary(state.key, { iv: rec.iv, data: rec.data });
-    const url = URL.createObjectURL(new Blob([buf], { type: rec.mimeType }));
-    const close = openSheet('Original sheet', h('div', {}, [h('img', { src: url }), h('button', { class: 'btn btn-block', onclick: () => close() }, 'Close')]));
-    setTimeout(() => URL.revokeObjectURL(url), 120000);
+    const c = state.cases.find((x) => x.case_id === id);
+    const keys = c ? photoKeys(c) : [id];
+    const urls = []; const box = h('div');
+    let closeSheet;
+    for (const k of keys) {
+      const rec = await DB.get('images', k); if (!rec) continue;
+      const url = URL.createObjectURL(new Blob([await CryptoModule.decryptBinary(state.key, { iv: rec.iv, data: rec.data })], { type: rec.mimeType })); urls.push(url);
+      const again = async (rot) => { const changed = await editSavedImage(k, rot); if (changed) { closeSheet && closeSheet(); viewImage(id); } };
+      box.appendChild(h('div', { class: 'ph-full' }, [h('img', { src: url, alt: k === id ? 'Original sheet' : 'Extra page' }),
+        h('div', { class: 'gal-actions' }, [
+          h('button', { class: 'btn btn-sm', 'data-rot': 'left', onclick: () => again(-1) }, '⟲ Rotate left'),
+          h('button', { class: 'btn btn-sm', 'data-rot': 'right', onclick: () => again(1) }, '⟳ Rotate right'),
+          h('button', { class: 'btn btn-sm', 'data-edit': k, onclick: () => again(0) }, 'Edit'),
+        ])]));
+    }
+    if (!urls.length) return toast('No photo stored for this case');
+    closeSheet = openSheet(urls.length > 1 ? 'Photos' : 'Original sheet', h('div', {}, [box, h('button', { class: 'btn btn-block', onclick: () => closeSheet() }, 'Close')]));
+    setTimeout(() => urls.forEach((u) => URL.revokeObjectURL(u)), 180000);
   }
 
   function confirmDelete(id) {
@@ -1585,7 +1652,7 @@ const App = (() => {
       pad, isoOf, parseISO, todayISO, fmtDate, fmtDay, monthLabel, shiftMonth, shiftDay, uid, shortName, initials, toneOf, TONE_VAR, DOW, MON, MONTHS,
       hospitalList, activeCases, activePreops, activeProcedures, casesForDate, dutiesOn, dutiesInMonth, emptyFilters, applyFilters, suggestedFor,
       encOp, settingsOp, imageOp, saveSettings, putCase, putDuty, putPreopRec, putProcedure, putTemplate, persistCase, persistPreop, rememberLists,
-      safeExport, openEdit, viewImage, confirmDelete, lockNow, defaultSettings, afterUnlock, reloadAll, prepareImages, applyTheme, openChangePin,
+      safeExport, openEdit, viewImage, editPhoto, editSavedImage, confirmDelete, lockNow, defaultSettings, afterUnlock, reloadAll, prepareImages, applyTheme, openChangePin,
       loadStore, X, nightDutyDate, addNightDuty, openDutySheet, recentTemplates, startManualCase, startCaseFrom, metaNow, unlockWithRaw, reencryptOps, setPinFromRaw, weakPin, clearLockout,
     };
     for (const f of window.V8Ext || []) { const r = f(ctx) || {}; Object.assign(SCREENS, r.screens || {}); Object.assign(X, r.api || {}); }

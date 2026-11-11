@@ -127,7 +127,8 @@
     };
     async function onPhoto(e) {
       const files = [...e.target.files]; if (!files.length) return;
-      for (const file of files) {
+      for (const f of files) {
+        const file = await ctx.editPhoto(f, 'Edit chart photo'); if (!file) continue;
         const { store } = await ctx.prepareImages(file);
         state.preopImages.push({ arrayBuffer: await store.arrayBuffer(), mimeType: store.type || 'image/jpeg', url: URL.createObjectURL(store) });
       }
@@ -162,7 +163,8 @@
     for (const k of keysOf(p)) {
       const rec = await DB.get('images', k); if (!rec) continue;
       const url = URL.createObjectURL(new Blob([await CryptoModule.decryptBinary(state.key, { iv: rec.iv, data: rec.data })], { type: rec.mimeType })); urls.push(url);
-      box.appendChild(h('div', { class: 'ph-full' }, [h('img', { src: url, alt: 'Chart photo' }), k === p.preop_id && keysOf(p).length === 1 ? null : null,
+      box.appendChild(h('div', { class: 'ph-full' }, [h('img', { src: url, alt: 'Chart photo' }),
+        h('div', { class: 'gal-actions' }, [['⟲ Rotate left', -1, 'left'], ['⟳ Rotate right', 1, 'right'], ['Edit', 0, 'edit']].map(([t, r, d]) => h('button', { class: 'btn btn-sm', 'data-rot': d, onclick: async () => { if (await ctx.editSavedImage(k, r)) { ctx.render(); toast('Reopen to see the updated photo'); } } }, t))),
         h('button', { class: 'btn btn-sm btn-danger', onclick: () => confirmSheet({ title: 'Remove this photo?', text: 'The photo is deleted from this device. The assessment stays.', okLabel: 'Remove photo', danger: true, onOk: async () => { await DB.del('images', k); p.photos = (p.photos || []).filter((x) => x !== k); await ctx.putPreopRec(p); toast('Photo removed'); ctx.render(); } }) }, [ic('trash'), 'Remove this photo'])]));
     }
     if (!urls.length) return toast('No photo stored for this assessment');

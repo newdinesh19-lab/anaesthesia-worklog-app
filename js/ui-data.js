@@ -121,7 +121,7 @@
         try {
           const v = await CryptoModule.decryptJSON(state.key, r.value);
           const pr = ['templates'].includes(store) ? [] : Schema.validate(kind, v);
-          if (store === 'cases') caseIds.add(v.case_id); if (store === 'preops') { photoIds.add(v.preop_id); (v.photos || []).forEach((k) => photoIds.add(k)); }
+          if (store === 'cases') { caseIds.add(v.case_id); (v.photos || []).forEach((k) => photoIds.add(k)); } if (store === 'preops') { photoIds.add(v.preop_id); (v.photos || []).forEach((k) => photoIds.add(k)); }
           if (pr.length) { structural++; bad.push({ store, id: r[idKey], what: pr.join(', ') }); } else ok++;
         } catch (e) { unreadable++; bad.push({ store, id: r[idKey], what: 'cannot be decrypted with the current PIN (damaged, or written under another PIN)' }); }
       }
@@ -156,7 +156,7 @@
   function renderBin(screen) {
     screen.appendChild(pageHead('Recycle bin', 'Restore or remove for good', null, 'settings'));
     const groups = [
-      ['Cases', state.cases.filter((c) => c.deleted_at), (c) => `${c.patient_name || '(no name)'} · ${fmtDate(c.case_date)}`, (c) => ctx.putCase(c), (c) => [['cases', c.case_id], ['images', c.case_id]], (c) => { state.cases = state.cases.filter((x) => x !== c); }],
+      ['Cases', state.cases.filter((c) => c.deleted_at), (c) => `${c.patient_name || '(no name)'} · ${fmtDate(c.case_date)}`, (c) => ctx.putCase(c), (c) => [['cases', c.case_id], ['images', c.case_id], ...(c.photos || []).map((k) => ['images', k])], (c) => { state.cases = state.cases.filter((x) => x !== c); }],
       ['Pre-op assessments', state.preops.filter((p) => p.deleted_at), (p) => `${p.patient_name || '(no name)'} · ${fmtDate(p.date)}`, (p) => ctx.putPreopRec(p), (p) => [['preops', p.preop_id], ['images', p.preop_id], ...(p.photos || []).map((k) => ['images', k])], (p) => { state.preops = state.preops.filter((x) => x !== p); }],
       ['Procedures', state.procedures.filter((p) => p.deleted_at), (p) => `${p.procedure} · ${fmtDate(p.date)}`, (p) => ctx.putProcedure(p), (p) => [['procedures', p.proc_id]], (p) => { state.procedures = state.procedures.filter((x) => x !== p); }],
     ];
