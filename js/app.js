@@ -48,6 +48,10 @@ const App = (() => {
   }
 
   const ICONS = {
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -151,7 +155,7 @@ const App = (() => {
     hospitals: ['THANC Hospital', 'Yaal Hospital'], hospitalsSeeded: true, consultants: [], surgeries: [],
     lastMode: '', autoLockMin: 2,
     // V8
-    entryMode: 'quick', theme: 'auto', paedAgeMax: 16, geriatricAgeMin: 65, lastBackupAt: null, backupRemindDays: 30,
+    entryMode: 'quick', theme: 'dark', uiV11: true, paedAgeMax: 16, geriatricAgeMin: 65, lastBackupAt: null, backupRemindDays: 30,
   });
   const hospitalList = () => [...new Set([state.settings.hospital, ...(state.settings.hospitals || [])].filter(Boolean))];
 
@@ -164,6 +168,7 @@ const App = (() => {
   async function loadSettings() {
     const rec = await DB.get('meta', 'settings');
     state.settings = { ...defaultSettings(), ...(rec ? await CryptoModule.decryptJSON(state.key, rec.value) : {}) };
+    if (!state.settings.uiV11) { state.settings.uiV11 = true; if (state.settings.theme === 'auto') state.settings.theme = 'dark'; await saveSettings(); } // v11 look: dark by default (Light / Match phone remain in Settings)
     if (!state.settings.hospitalsSeeded) { // one-time: add the hospitals you work at to existing installs
       for (const n of ['THANC Hospital', 'Yaal Hospital']) if (!state.settings.hospitals.includes(n)) state.settings.hospitals.push(n);
       state.settings.hospitalsSeeded = true; await saveSettings();
@@ -431,10 +436,10 @@ const App = (() => {
     await DB.put('meta', { key: 'schema', value });
   }
   function applyTheme() {
-    const t = state.settings?.theme || 'auto';
-    if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+    const t = state.settings?.theme || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
     const dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#0b1226' : '#F5F7FB'));
+    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#252525' : '#F4F4F8'));
   }
 
   function enterApp() {
@@ -479,6 +484,7 @@ const App = (() => {
     root().appendChild(screen);
     banners().forEach((b) => screen.appendChild(b));
     (SCREENS[state.route] || renderHome)(screen);
+    if (X.shell) X.shell(root(), screen);
     if (['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route) && !screen.querySelector('.page-head .icon-btn[aria-label="Back"]')) screen.insertBefore(h('button', { class: 'back-link', id: 'topBack', onclick: () => (history.length > 1 ? history.back() : go('home')) }, [ic('left'), 'Back']), screen.firstChild);
     setTimeout(updateFab, 0);
     if (!['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route)) root().appendChild(dock());
@@ -1514,7 +1520,7 @@ const App = (() => {
     screen.appendChild(pageHead('Settings', 'Profile & security', null, 'more'));
     const sel = (id, opts, get, set) => h('select', { class: 'input', id, onchange: async (e) => { await set(e.target.value); } }, opts.map(([v, l]) => h('option', { value: v, ...(String(get()) === String(v) ? { selected: true } : {}) }, l)));
     screen.appendChild(h('div', { class: 'card' }, [h('h3', {}, 'Appearance & entry'),
-      h('div', { class: 'field' }, [h('label', {}, 'Theme'), sel('themeSel', [['auto', 'Match phone'], ['light', 'Light'], ['dark', 'Dark']], () => s.theme || 'auto', async (v) => { s.theme = v; applyTheme(); await saveSettings(); toast('Theme updated'); })]),
+      h('div', { class: 'field' }, [h('label', {}, 'Theme'), sel('themeSel', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Match phone']], () => s.theme || 'auto', async (v) => { s.theme = v; applyTheme(); await saveSettings(); toast('Theme updated'); })]),
       h('div', { class: 'field' }, [h('label', {}, 'Case entry form'), sel('entrySel', [['quick', 'Quick (essentials first)'], ['detailed', 'Detailed (all sections)']], () => s.entryMode || 'quick', async (v) => { s.entryMode = v; await saveSettings(); toast('Saved'); })]),
       h('div', { class: 'grid2' }, [
         h('div', { class: 'field' }, [h('label', {}, 'Paediatric: under (years)'), h('input', { class: 'input', id: 'paedAge', type: 'number', inputmode: 'numeric', min: '1', max: '30', value: s.paedAgeMax ?? 16, onchange: async (e) => { const n = Number(e.target.value); if (n >= 1 && n <= 30) { s.paedAgeMax = n; await saveSettings(); toast('Saved'); } } })]),

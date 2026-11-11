@@ -248,3 +248,12 @@ Limits: not tested on a physical Android device (Chromium emulation only); very 
 - Calendar dots, duty cards, analytics, history, doctors list and PDF/CSV exports use the doctor colour (Excel/CSV carry a **Colour** hex column; SheetJS community edition cannot fill cells). Shifts stay identifiable by icon + label.
 - Calendar: Month/Agenda views, doctor + shift filters (combine, Clear), doctor legend, monthly workload summary, duration on each duty card.
 - Saving a **new** duty asks you to confirm who actually worked (pre-selection is only a suggestion).
+
+## v11.0.0 — Clinical dark UI redesign (Cure.Med reference)
+Look and layout only; PIN, encryption, IndexedDB, OCR, THANC, photo editor and exports are unchanged. No data-format change.
+- **Theme:** charcoal (#252525) + violet accent, Inter font bundled locally (`fonts/`, works offline), tokens in `css/theme.css` (loaded after `style.css`). Dark is the default; Settings → Theme offers Dark / Light / Match phone (the top-bar sun/moon button toggles).
+- **Desktop (≥900 px):** left sidebar (Dashboard, Cases, Add Case, Duty Calendar, THANC Duty, Preoperative Assessment, Analytics, Exports, Settings, Backup, All tools, Lock + profile card), top bar (search, theme, notifications, date, Home), main dashboard and a right panel (month calendar with case/duty dots, today's duty, upcoming duties for 14 days, reminders).
+- **Dashboard:** welcome banner, Cases today, Monthly cases (vs last month), THANC Duty card (today's morning/evening/night), Quick actions + recent activity, and a case-volume chart (Week / Month / 6 months / Year / All). All figures come from saved records; empty states are shown when there is no data.
+- **Phone:** slide-in menu drawer, compact header, week strip (tap a day), 2-up summary cards, bottom navigation, no horizontal overflow at 320–390 px.
+- Code: `js/ui-shell.js` (shell + dashboard), small hooks in `app.js`/`ui-home.js`.
+Limits: tested in Chromium emulation, not on a physical Android phone. Excel exports cannot carry cell colours.

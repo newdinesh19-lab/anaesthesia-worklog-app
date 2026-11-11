@@ -1,6 +1,6 @@
 // Offline app shell. Patient data never passes through here: it lives only in IndexedDB.
-const CACHE = 'anaesthesia-log-v10-1-0'; // bump on every release so phones pick up new files
-const SHELL = ['./', 'index.html', 'manifest.json', 'css/style.css',
+const CACHE = 'anaesthesia-log-v11-0-0'; // bump on every release so phones pick up new files
+const SHELL = ['./', 'index.html', 'manifest.json', 'css/style.css', 'css/theme.css', 'fonts/inter-latin-wght-normal.woff2', 'js/ui-shell.js',
   'js/crypto.js', 'js/schedule.js', 'js/thanc-hours.js', 'js/thanc.js', 'js/ui-schedule.js', 'js/ui-thanc.js', 'js/ui-thanc-reports.js', 'js/keys.js', 'js/ui-security.js', 'js/ui-home.js', 'js/schema.js', 'js/db.js', 'js/backup.js', 'js/meddata.js', 'js/parser.js', 'js/sequence.js', 'js/duplicates.js', 'js/stats.js',
   'js/analytics.js', 'js/export.js', 'js/reports.js', 'js/ocr.js',
   'js/ui-common.js', 'js/ui-data.js', 'js/ui-case.js', 'js/imgmath.js', 'js/imgedit.js', 'js/ui-preop.js', 'js/ui-proc.js', 'js/ui-portfolio.js', 'js/ui-dash.js', 'js/ui-search.js', 'js/ui-reports.js',

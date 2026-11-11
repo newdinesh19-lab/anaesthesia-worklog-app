@@ -50,6 +50,7 @@
 
     // A. header
     screen.appendChild(h('header', { class: 'home-head' }, [
+      h('button', { class: 'icon-btn hm-menu', id: 'hMenu', 'aria-label': 'Menu', onclick: () => document.getElementById('app').classList.toggle('drawer-open') }, ic('list')),
       h('div', { class: 'home-title' }, [h('small', {}, `${greet} · ${fmtDay(today)}`), h('h1', {}, 'Anaesthesia Log')]),
       h('div', { class: 'home-actions' }, [
         h('button', { class: 'icon-btn', id: 'hSearch', 'aria-label': 'Search', onclick: () => go('search') }, ic('search')),
@@ -64,9 +65,11 @@
     if (days && all.length && (age === null || age >= days)) screen.appendChild(h('button', { class: 'warnbar', id: 'backupRemind', style: 'width:100%;text-align:left', onclick: () => go('backup') }, [ic('warn', 'inl'), age === null ? ' You have never backed up. Your data lives only on this phone — tap to back up.' : ` Last backup was ${age} days ago. Tap to back up now.`]));
     else { const n = X.homeNudge && X.homeNudge(); if (n) screen.appendChild(n); }
 
-    // C. quick actions
+    if (X.homeTop) X.homeTop(screen);
+
+    // C. quick actions (phone; the desktop dashboard has its own card)
     const qa = (cls, icon, title, sub, fn, id) => h('button', { class: 'qa ' + cls, id, onclick: fn }, [h('span', { class: 'qa-ic' }, ic(icon)), h('span', { class: 'qa-t' }, [h('b', {}, title), h('small', {}, sub)])]);
-    screen.appendChild(h('div', { class: 'qa-grid' }, [
+    screen.appendChild(h('div', { class: 'qa-grid only-mobile' }, [
       qa('hero qa-primary', 'plus', 'Add New Case', 'Manual entry', () => ctx.startManualCase(), 'qaAdd'),
       qa('qa-teal', 'camera', 'Scan Sheet', 'Photo → auto-fill', () => { go('add'); }, 'qaScan'),
       qa('qa-blue', 'list', 'My Cases', shortName(roster[0] || 'me'), () => openCases({ anaes: roster[0] }), 'qaMine'),
@@ -144,5 +147,5 @@
     screen.appendChild(recentFold([rcards, rtable]));
   }
 
-  return { screens: { home: renderHome }, api: { homeAlerts: alerts } };
+  return { screens: { home: renderHome }, api: { homeAlerts: alerts, openAlerts } };
 });
