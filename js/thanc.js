@@ -28,10 +28,51 @@ const Thanc = (() => {
   /** Saved settings merged over defaults; anything missing falls back, so old settings never break. */
   const config = (saved) => { const d = DEFAULTS(); const s = saved || {}; const out = { roster: Array.isArray(s.roster) && s.roster.length ? [...s.roster] : d.roster, aliases: { ...(s.aliases || {}) }, inactive: [...(s.inactive || [])], shifts: {} };
     for (const sh of SHIFTS) out.shifts[sh.id] = { ...d.shifts[sh.id], ...((s.shifts || {})[sh.id] || {}) };
+    out.docs = ensureDocs(out, s.docs);
     return out; };
   /** name → canonical display name (roster spelling, aliases applied). */
   const resolver = (cfg) => { const map = new Map(); for (const n of (cfg || config()).roster) map.set(canonKey(n), display(n)); for (const [a, to] of Object.entries((cfg || config()).aliases || {})) map.set(canonKey(a), display(to));
     return (name) => map.get(canonKey(name)) || display(name); };
+
+  // ---- permanent doctor identity + colour. A doctor's id never changes (renames keep it); colour is stored against the id.
+  const PALETTE = ['#2563EB', '#0D9488', '#D97706', '#8B5CF6', '#DC2626', '#0891B2', '#65A30D', '#DB2777', '#4F46E5', '#EA580C', '#059669', '#9333EA', '#CA8A04', '#0284C7', '#BE123C', '#475569'];
+  const DEFAULT_COLOR = { karthik: '#2563EB', vignesh: '#0D9488', dinesh: '#D97706', arafath: '#8B5CF6' };
+  const hexOk = (x) => /^#[0-9a-f]{6}$/i.test(String(x || ''));
+  const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  /** Perceptual-ish distance between two hex colours (weighted RGB; ~0 same, >100 clearly different). */
+  const colorDist = (a, b) => { const [r1, g1, b1] = rgb(a), [r2, g2, b2] = rgb(b), rm = (r1 + r2) / 2, dr = r1 - r2, dg = g1 - g2, db = b1 - b2; return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db); };
+  const CLOSE = 90;
+  const hsl = (h, s, l) => { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return '#' + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('').toUpperCase(); };
+  /** First palette colour not close to any used one; once the palette is exhausted, generate by golden-angle hue steps (mid lightness so it reads in light and dark themes). */
+  const nextColor = (used) => { const u = (used || []).filter(hexOk); for (const c of PALETTE) if (u.every((x) => colorDist(c, x) >= CLOSE)) return c; for (let i = 1; i < 400; i++) { const c = hsl((i * 137.508) % 360, 62 + (i % 3) * 6, 40 + (i % 4) * 4); if (u.every((x) => colorDist(c, x) >= CLOSE * 0.7)) return c; } return PALETTE[u.length % PALETTE.length]; };
+  const docId = (name) => 'doc-' + canonKey(name).replace(/\s+/g, '-');
+  /** Registry [{id,name,color}] for every roster doctor; saved entries win (their colours are permanent); missing ones are created with a free colour. */
+  function ensureDocs(cfg, saved) {
+    const out = []; const seen = new Set();
+    for (const d of Array.isArray(saved) ? saved : []) if (d && d.id && d.name && !seen.has(d.id)) { seen.add(d.id); out.push({ id: d.id, name: display(d.name), color: hexOk(d.color) ? d.color.toUpperCase() : '' }); }
+    const has = (n) => out.some((d) => canonKey(d.name) === canonKey(n));
+    const targets = [...cfg.roster, ...Object.values(cfg.aliases || {})];
+    for (const n of targets) if (!has(n)) { let id = docId(n); while (seen.has(id)) id += '-2'; seen.add(id); out.push({ id, name: display(n), color: '' }); }
+    for (const d of out) if (!d.color) d.color = DEFAULT_COLOR[canonKey(d.name)] && !out.some((x) => x !== d && x.color === DEFAULT_COLOR[canonKey(d.name)]) ? DEFAULT_COLOR[canonKey(d.name)] : nextColor(out.filter((x) => x.color).map((x) => x.color));
+    return out; }
+  const docOf = (cfg, name) => { const r = resolver(cfg)(name), k = canonKey(r); return (cfg.docs || []).find((d) => canonKey(d.name) === k) || null; };
+  /** Colour for any name (history may hold names outside the roster: they get a stable fallback so they are still distinguishable). */
+  const colorOf = (cfg, name) => { const d = docOf(cfg, name); if (d) return d.color; let h = 0; for (const ch of canonKey(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length]; };
+  const idOfDoctor = (cfg, name) => { const d = docOf(cfg, name); return d ? d.id : docId(name); };
+  /** Black or white text for a coloured background. */
+  const inkOn = (hex) => { const [r, g, b] = rgb(hex); return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#111827' : '#FFFFFF'; };
+  /** Is this colour too close to another doctor's? → that doctor's name, or null. */
+  const colorConflict = (cfg, hex, id) => { const o = (cfg.docs || []).find((d) => d.id !== id && colorDist(d.color, hex) < CLOSE * 0.55); return o ? o.name : null; };
+  const setColor = (cfg, id, hex) => (cfg.docs || []).map((d) => (d.id === id ? { ...d, color: hex.toUpperCase() } : d));
+  /** Rename keeps id + colour + every historical record (old spelling becomes an alias of the new name). Returns a settings patch. */
+  function renamePatch(cfg, id, newName) {
+    const d = (cfg.docs || []).find((x) => x.id === id); const nn = display(newName); if (!d || !nn) return null; const old = d.name, k = canonKey(old);
+    if (canonKey(nn) === k) return { docs: cfg.docs.map((x) => (x.id === id ? { ...x, name: nn } : x)) };
+    if ((cfg.docs || []).some((x) => x.id !== id && canonKey(x.name) === canonKey(nn))) return null;
+    const aliases = { ...cfg.aliases }; for (const [a, to] of Object.entries(aliases)) if (canonKey(to) === k) aliases[a] = nn; aliases[old] = nn;
+    const sw = (arr) => (arr || []).map((x) => (canonKey(x) === k ? nn : x));
+    return { docs: cfg.docs.map((x) => (x.id === id ? { ...x, name: nn } : x)), aliases, roster: sw(cfg.roster), inactive: sw(cfg.inactive), shifts: Object.fromEntries(SHIFTS.map((sh) => [sh.id, { ...cfg.shifts[sh.id], doctors: sw(cfg.shifts[sh.id].doctors) }])) };
+  }
   const uniq = (arr, resolve) => { const r = resolve || ((x) => display(x)); const seen = new Set(), out = []; for (const x of arr.map(clean)) { const n = r(x); const k = canonKey(n); if (n && !seen.has(k)) { seen.add(k); out.push(n); } } return out; };
   const shiftMeta = (id) => SHIFTS.find((s) => s.id === id);
   const isThanc = (t) => !!t && t.type === 'thanc';
@@ -175,12 +216,12 @@ const Thanc = (() => {
   const tableSet = (recs, cfg, a, templates) => { const resolve = resolver(cfg), L = lines(recs, resolve).filter((l) => l.date >= a.from && l.date <= a.to && (a.doctor === 'ALL' || canonKey(l.doctor) === canonKey(a.doctor)));
     const hd = (m) => H.hoursDec(m);
     const T = [];
-    T.push({ name: 'Doctor-wise', head: ['Doctor', 'Morning', 'Evening', 'Night', 'Total duties', 'Total hours', 'Morning h', 'Evening h', 'Night h', 'Avg h / duty', 'Max h', 'Invalid entries'],
-      rows: [...a.rows.map((r) => [r.doctor, r.morning, r.evening, r.night, r.total, hd(r.minutes.total), hd(r.minutes.morning), hd(r.minutes.evening), hd(r.minutes.night), hd(r.avg), hd(r.max), r.invalid]),
-        ['TOTAL', a.totals.morning, a.totals.evening, a.totals.night, a.totals.total, hd(a.totals.minutes.total), hd(a.totals.minutes.morning), hd(a.totals.minutes.evening), hd(a.totals.minutes.night), hd(a.totals.avg), hd(a.totals.max), a.totals.invalid]] });
+    T.push({ name: 'Doctor-wise', head: ['Doctor', 'Colour', 'Morning', 'Evening', 'Night', 'Total duties', 'Total hours', 'Morning h', 'Evening h', 'Night h', 'Avg h / duty', 'Max h', 'Invalid entries'],
+      rows: [...a.rows.map((r) => [r.doctor, colorOf(cfg, r.doctor), r.morning, r.evening, r.night, r.total, hd(r.minutes.total), hd(r.minutes.morning), hd(r.minutes.evening), hd(r.minutes.night), hd(r.avg), hd(r.max), r.invalid]),
+        ['TOTAL', '', a.totals.morning, a.totals.evening, a.totals.night, a.totals.total, hd(a.totals.minutes.total), hd(a.totals.minutes.morning), hd(a.totals.minutes.evening), hd(a.totals.minutes.night), hd(a.totals.avg), hd(a.totals.max), a.totals.invalid]] });
     T.push({ name: 'Shift-wise', head: ['Shift', 'Duties', 'Doctor assignments', 'Hours (in period)', 'Avg h / assignment'], rows: a.shiftWise.map((s) => [s.label, s.duties, s.assignments, hd(s.minutes), hd(s.avg)]) });
-    T.push({ name: 'Duty lines', head: ['Date', 'Hospital', 'Shift', 'Doctor', 'Start', 'End', 'Hours', 'Overnight', 'Individual time', 'Status', 'Notes'],
-      rows: L.sort((x, y) => x.date.localeCompare(y.date) || order(x.shift) - order(y.shift) || x.doctor.localeCompare(y.doctor)).map((l) => [l.date, HOSPITAL, shiftMeta(l.shift).label, l.doctor, l.start, l.end, l.iv.status === 'ok' ? hd(l.iv.minutes) : '', l.iv.overnight ? 'Yes' : '', l.custom ? 'Yes' : '', statusText(l.iv), l.notes]) });
+    T.push({ name: 'Duty lines', head: ['Date', 'Hospital', 'Shift', 'Doctor', 'Colour', 'Start', 'End', 'Hours', 'Overnight', 'Individual time', 'Status', 'Notes'],
+      rows: L.sort((x, y) => x.date.localeCompare(y.date) || order(x.shift) - order(y.shift) || x.doctor.localeCompare(y.doctor)).map((l) => [l.date, HOSPITAL, shiftMeta(l.shift).label, l.doctor, colorOf(cfg, l.doctor), l.start, l.end, l.iv.status === 'ok' ? hd(l.iv.minutes) : '', l.iv.overnight ? 'Yes' : '', l.custom ? 'Yes' : '', statusText(l.iv), l.notes]) });
     T.push({ name: 'Issues', head: ['Date', 'Shift', 'Doctor', 'Problem'], rows: issues(recs, cfg, templates).filter((i) => i.date >= a.from && i.date <= a.to).map((i) => [i.date, i.shift, i.doctor || '', i.text]) });
     return T; };
   const auditRows = (recs) => { const out = []; for (const r of recs) for (const e of r.audit) out.push([e.at, r.date, shiftMeta(r.shift).label, e.action, Object.entries(e.changes || {}).map(([k, v]) => `${k}: ${v[0]} → ${v[1]}`).join(' | '), e.note || '']);
@@ -221,7 +262,7 @@ const Thanc = (() => {
 
   const hours = (s, e) => { const iv = H.interval('2000-01-01', s, e); return iv.status === 'ok' ? iv.minutes / 60 : 0; };
   const fmtTime = (t) => { if (!t || !/^\d{2}:\d{2}$/.test(t)) return '—'; const [hh, mm] = t.split(':').map(Number); return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
-  return { HOSPITAL, SCHEMA_V, SHIFTS, ROSTER, DEFAULTS, config, resolver, canonKey, display, shiftMeta, isThanc, isImportBatch, isThancAny, idFor, uniq, clean, shortName, initials, idOk, newRecord, norm, recordsOf, deletedOf, malformedOf, wellFormed,
+  return { HOSPITAL, SCHEMA_V, SHIFTS, ROSTER, DEFAULTS, config, resolver, PALETTE, DEFAULT_COLOR, hexOk, colorDist, nextColor, docOf, colorOf, idOfDoctor, inkOn, colorConflict, setColor, renamePatch, ensureDocs, canonKey, display, shiftMeta, isThanc, isImportBatch, isThancAny, idFor, uniq, clean, shortName, initials, idOk, newRecord, norm, recordsOf, deletedOf, malformedOf, wellFormed,
     forDate, inMonth, sortAsc, applyEdit, softDelete, restore, createRecord, moveRecord, cleanTimes, diff, lines, analyse, trend, issues, selfCheck, search, summary, summaryCSV, toCSV, toCSVTable, rows, HEAD, tableSet, auditRows, AUDIT_HEAD, statusText,
     legacyCandidates, buildImport, buildRollback, hours, fmtTime, order };
 })();

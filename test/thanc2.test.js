@@ -96,6 +96,6 @@ test('legacy import: only THANC-marked, preview statuses, no duplicates, rollbac
 test('tables: exports use actual intervals and reconcile with analytics', () => {
   const recs = recsOf(mk('2026-10-31', 'night', ['Dr. Karthik'], '20:00', '08:00'), mk('2026-11-01', 'morning', ['Dr. Dinesh'], '08:00', '14:30'));
   const a = T.analyse(recs, cfg, { kind: 'month', key: '2026-11' }); const ts = T.tableSet(recs, cfg, a, []); assert.deepStrictEqual(ts.map((t) => t.name), ['Doctor-wise', 'Shift-wise', 'Duty lines', 'Issues']);
-  const dw = ts[0]; assert.strictEqual(dw.rows[dw.rows.length - 1][5], 14.5); assert.strictEqual(ts[2].rows.length, 1); assert.strictEqual(ts[2].rows[0][6], 6.5);
+  const dw = ts[0]; assert.strictEqual(dw.rows[dw.rows.length - 1][6], 14.5); assert.strictEqual(ts[2].rows.length, 1); assert.strictEqual(ts[2].rows[0][7], 6.5);
   assert(T.toCSVTable(ts[0].head, ts[0].rows).includes('Total hours'));
 });

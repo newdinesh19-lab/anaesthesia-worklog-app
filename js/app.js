@@ -131,9 +131,9 @@ const App = (() => {
     return close;
   }
 
-  function confirmSheet({ title, text, okLabel = 'Confirm', danger = false, onOk, onCancel }) {
+  function confirmSheet({ title, text, okLabel = 'Confirm', danger = false, onOk, onCancel, body }) {
     const close = openSheet(title, h('div', {}, [
-      h('p', {}, text),
+      body || h('p', {}, text),
       h('div', { class: 'btn-row' }, [
         h('button', { class: 'btn', onclick: () => { close(); onCancel && onCancel(); } }, 'Cancel'),
         h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), onclick: () => { close(); onOk && onOk(); } }, okLabel),

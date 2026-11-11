@@ -242,3 +242,9 @@ Navy / royal blue / teal / coral / purple palette, flat white cards with soft sh
 Schema: no IndexedDB version change. New optional fields: `case.photos[]` (extra image keys `caseId:xxxxxxxx`), THANC v2 record fields. Older data and backups remain readable.
 
 Limits: not tested on a physical Android device (Chromium emulation only); very large photos are downscaled to 2400 px.
+
+## v10.1.0 — Doctor colours, calendar filters, agenda
+- **Permanent doctor colours**: stored against a permanent doctor id (`settings.thanc.docs [{id,name,color}]`), never the name. Defaults: Karthik #2563EB, Vignesh #0D9488, Dinesh #D97706, Arafath #8B5CF6. New doctors get an unused, distinguishable colour (generated when the palette runs out); change it in Doctors → Manage (colour picker; near-duplicates are refused). Colours survive deactivation and renaming (a rename keeps id, colour and all history; the old spelling becomes an alias).
+- Calendar dots, duty cards, analytics, history, doctors list and PDF/CSV exports use the doctor colour (Excel/CSV carry a **Colour** hex column; SheetJS community edition cannot fill cells). Shifts stay identifiable by icon + label.
+- Calendar: Month/Agenda views, doctor + shift filters (combine, Clear), doctor legend, monthly workload summary, duration on each duty card.
+- Saving a **new** duty asks you to confirm who actually worked (pre-selection is only a suggestion).

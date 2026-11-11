@@ -26,7 +26,7 @@
     for (const r of list) { const i = state.templates.findIndex((t) => t.tpl_id === r.tpl_id); if (i >= 0) state.templates[i] = r; else state.templates.push(r); }
     ui.drafts = {};
   }
-  async function saveCfg(patch) { state.settings.thanc = { ...(state.settings.thanc || {}), ...patch }; await DB.batch([await ctx.settingsOp()]); ui.drafts = {}; }
+  async function saveCfg(patch) { const merged = { ...(state.settings.thanc || {}), ...patch }; merged.docs = Th.config(merged).docs; state.settings.thanc = merged; await DB.batch([await ctx.settingsOp()]); ui.drafts = {}; }
   function draftFor(date, shift) {
     const k = date + '|' + shift;
     if (!ui.drafts[k]) {
@@ -46,11 +46,19 @@
     return '';
   }
   /** Save (create / edit / move) one duty. Returns true when saved or unchanged. */
+  /** Pre-selected doctors are only a suggestion: the person must confirm who actually worked before a NEW duty is stored. */
+  function confirmWorked(items) {
+    return new Promise((resolve) => {
+      const lines = items.map(([d, sh, docs]) => h('p', { style: 'margin:6px 0' }, [h('b', {}, `${Th.shiftMeta(sh).label} · ${fmtDay(d)}`), h('div', { class: 'th-docs' }, docs.map((n) => docChip(n)))]));
+      ctx.confirmSheet({ title: 'Confirm who worked', text: '', okLabel: 'Yes, save duty', onOk: () => resolve(true), onCancel: () => resolve(false), body: h('div', {}, [h('p', { class: 'muted', style: 'margin-top:0' }, 'Pre-selected doctors may not all have worked. Save only the doctors who actually did:'), ...lines]) });
+    });
+  }
   async function persist(date, shift, f, old) {
     const c = cfg(), r = resolve(), doctors = Th.uniq(f.doctors || [], r);
     if (!doctors.length) { toast('Choose at least one doctor'); return false; }
     if (!Th.idOk(date)) { toast('Choose a valid date'); return false; }
     const bad = timeProblem(f, doctors); if (bad) { toast(bad); return false; }
+    if (!old && !f.confirmed) { const ok = await confirmWorked([[date, shift, doctors]]); if (!ok) return false; }
     const now = T_NOW(), id = Th.idFor(date, shift), target = findRec(id), ff = { date, shift, doctors, start: f.start, end: f.end, notes: f.notes || '', doctorTimes: f.doctorTimes || {} };
     let puts = [];
     if (old && old.tpl_id !== id) {
@@ -72,8 +80,9 @@
   }
 
   // ------------------------------------------------------------------ small widgets
-  const avatar = (n) => h('span', { class: 'th-av' }, Th.initials(n));
-  const docChip = (n, onRemove) => h('span', { class: 'th-doc' }, [avatar(n), h('b', {}, Th.shortName(n)), onRemove ? h('button', { 'aria-label': 'Remove ' + n, onclick: (e) => { e.stopPropagation(); onRemove(); } }, '×') : null]);
+  const colorOf = (n) => Th.colorOf(cfg(), n);
+  const avatar = (n) => { const c = colorOf(n); return h('span', { class: 'th-av', style: `background:${c};color:${Th.inkOn(c)}` }, Th.initials(n)); };
+  const docChip = (n, onRemove) => h('span', { class: 'th-doc', 'data-color': colorOf(n), style: `box-shadow: inset 0 0 0 1.5px ${colorOf(n)}` }, [avatar(n), h('b', {}, Th.shortName(n)), onRemove ? h('button', { 'aria-label': 'Remove ' + n, onclick: (e) => { e.stopPropagation(); onRemove(); } }, '×') : null]);
   const timeRange = (s, e) => `${Th.fmtTime(s)} – ${Th.fmtTime(e)}`;
   const activeRoster = () => { const c = cfg(), off = new Set(c.inactive.map(Th.canonKey)); return c.roster.filter((n) => !off.has(Th.canonKey(n))); };
 
@@ -205,7 +214,7 @@
     const sumTxt = Th.SHIFTS.map((s) => { const d = draftFor(date, s.id); return `${s.label[0]}: ${d.doctors.length ? d.doctors.map(Th.shortName).join(', ') : '—'}${d.saved && !d.dirty ? '' : '*'}`; }).join('  ·  ');
     return h('div', { class: 'th-section', id: 'thanc' }, [ctx.fold({ id: 'thanc', title: 'THANC — Today’s duty', right: h('button', { id: 'thLink', onclick: () => go('thanc') }, 'Calendar →'), summary: sumTxt }, [
       nav, ...Th.SHIFTS.map((s) => shiftCard(date, s.id)),
-      h('button', { class: 'btn btn-primary btn-block' + (pending.length ? '' : ' th-done'), id: 'thSaveAll', disabled: !pending.length, onclick: async () => { let n = 0; for (const s of pending) { const d = draftFor(date, s.id); if (await persist(date, s.id, d, liveOf(date, s.id))) n++; } ctx.render(); toast(n ? `Saved ${n} duty entr${n === 1 ? 'y' : 'ies'}` : 'Nothing to save'); } }, [ic('check'), pending.length ? `SAVE TODAY’S DUTY (${pending.length})` : 'ALL DUTY SAVED']),
+      h('button', { class: 'btn btn-primary btn-block' + (pending.length ? '' : ' th-done'), id: 'thSaveAll', disabled: !pending.length, onclick: async () => { const fresh = pending.filter((s) => !liveOf(date, s.id) && draftFor(date, s.id).doctors.length); if (fresh.length && !(await confirmWorked(fresh.map((s) => [date, s.id, Th.uniq(draftFor(date, s.id).doctors, resolve())])))) return; let n = 0; for (const s of pending) { const d = draftFor(date, s.id); if (await persist(date, s.id, { ...d, confirmed: true }, liveOf(date, s.id))) n++; } ctx.render(); toast(n ? `Saved ${n} duty entr${n === 1 ? 'y' : 'ies'}` : 'Nothing to save'); } }, [ic('check'), pending.length ? `SAVE TODAY’S DUTY (${pending.length})` : 'ALL DUTY SAVED']),
     ])]);
   }
 
@@ -214,28 +223,65 @@
   const dutyRow = (r, o = {}) => { const bad = o.issues && o.issues.has(r.id); const custom = r.assignments.filter((a) => a.custom);
     return h('div', { class: `th-row th-${Th.shiftMeta(r.shift).tone}` }, [
       h('span', { class: 'th-ic sm' }, icon(r.shift)),
-      h('div', { class: 'th-rmain' }, [h('b', {}, (o.showDate ? fmtDay(r.date) + ' · ' : '') + Th.shiftMeta(r.shift).label, bad ? h('span', { class: 'th-pill warn', style: 'margin-left:6px' }, 'Check') : null, r.importedFrom ? h('span', { class: 'th-pill', style: 'margin-left:6px' }, 'Imported') : null), h('small', {}, timeRange(r.start, r.end)),
+      h('div', { class: 'th-rmain' }, [h('b', {}, (o.showDate ? fmtDay(r.date) + ' · ' : '') + Th.shiftMeta(r.shift).label, bad ? h('span', { class: 'th-pill warn', style: 'margin-left:6px' }, 'Check') : null, r.importedFrom ? h('span', { class: 'th-pill', style: 'margin-left:6px' }, 'Imported') : null), h('small', {}, [timeRange(r.start, r.end), ' · ', durChip(r.start, r.end)]),
         h('div', { class: 'th-docs' }, r.doctors.map((n) => docChip(n))), ...custom.map((a) => h('small', { class: 'th-custom' }, `${Th.shortName(a.doctor)}: ${timeRange(a.start, a.end)}`)), r.notes ? h('p', { class: 'th-note' }, r.notes) : null]),
       h('button', { class: 'btn btn-sm', 'data-edit': r.id, onclick: () => editSheet(r.date, r.shift) }, 'Edit'),
     ]); };
   const monthNav = () => h('div', { class: 'month-nav' }, [h('button', { class: 'icon-btn', 'aria-label': 'Previous month', onclick: () => { ui.ym = shiftMonth(ui.ym, -1); ui.day = ''; ctx.render(); } }, ic('left')), h('b', {}, monthLabel(ui.ym)), h('button', { class: 'icon-btn', 'aria-label': 'Next month', onclick: () => { ui.ym = shiftMonth(ui.ym, 1); ui.day = ''; ctx.render(); } }, ic('chev'))]);
   ctx.thTabs = ctx.thTabs || {};
 
+  // ---- calendar filters (doctor, shift) shared by grid, agenda, day cards and monthly summary
+  const fkey = (n) => Th.canonKey(resolve()(n));
+  const passes = (r) => (!ui.fShift || r.shift === ui.fShift) && (!ui.fDoc || r.doctors.some((n) => fkey(n) === ui.fDoc));
+  const dayDoctors = (rows) => { const seen = new Map(); for (const r of rows) for (const n of r.doctors) { const k = fkey(n); if (!ui.fDoc || ui.fDoc === k) if (!seen.has(k)) seen.set(k, n); } return [...seen.values()]; };
+  const activeDocs = () => { const c = cfg(), off = new Set(c.inactive.map(Th.canonKey)); const names = new Map(); for (const n of c.roster) names.set(fkey(n), resolve()(n)); for (const r of recs()) for (const n of r.doctors || []) if (!names.has(fkey(n))) names.set(fkey(n), n); return [...names.entries()].map(([k, n]) => ({ k, n, off: off.has(k) })); };
+  function filterBar() {
+    const docs = activeDocs();
+    const bar = h('div', { class: 'th-filters', id: 'thFilters' }, [
+      h('div', { class: 'th-fchips', 'aria-label': 'Doctor filter' }, docs.filter((d) => !d.off || ui.fDoc === d.k).map((d) => { const c = colorOf(d.n); return h('button', { class: 'chip th-fdoc' + (ui.fDoc === d.k ? ' on' : ''), 'data-fdoc': d.k, style: `--dc:${c}`, onclick: () => { ui.fDoc = ui.fDoc === d.k ? '' : d.k; ctx.render(); } }, [h('i', { class: 'th-swatch', style: `background:${c}` }), Th.shortName(d.n)]); })),
+      h('div', { class: 'th-fchips', 'aria-label': 'Shift filter' }, Th.SHIFTS.map((sh) => h('button', { class: 'chip th-fshift' + (ui.fShift === sh.id ? ' on' : ''), 'data-fshift': sh.id, onclick: () => { ui.fShift = ui.fShift === sh.id ? '' : sh.id; ctx.render(); } }, [h('span', { class: 'th-ic xs' }, icon(sh.id)), sh.label]))),
+      (ui.fDoc || ui.fShift) ? h('button', { class: 'btn btn-sm', id: 'thClearF', onclick: () => { ui.fDoc = ''; ui.fShift = ''; ctx.render(); } }, 'Clear filters') : null]);
+    return bar;
+  }
+  function monthSummary(all) {
+    const a = Th.analyse(all, cfg(), { kind: 'month', key: ui.ym, doctor: 'ALL' }); const rows = a.rows.filter((r) => (r.total || r.minutes.total) && (!ui.fDoc || r.key === ui.fDoc));
+    const sh = ui.fShift; const hr = (m) => Math.round(HR.hoursDec(m) * 10) / 10;
+    const body = h('div', { class: 'card th-table', id: 'thMonthSum' });
+    if (!rows.length) { body.appendChild(h('p', { class: 'muted', style: 'margin:0' }, 'No duty in this month.')); return body; }
+    body.appendChild(h('div', { class: 'th-tr wide head' }, ['Doctor', 'M', 'E', 'N', 'Duties', 'Hours'].map((x) => h('span', {}, x))));
+    rows.forEach((r) => body.appendChild(h('div', { class: 'th-tr wide', 'data-sum-row': r.doctor }, [h('span', { class: 'nm' }, [avatar(r.doctor), Th.shortName(r.doctor)]), h('span', {}, r.morning), h('span', {}, r.evening), h('span', {}, r.night), h('b', {}, sh ? r[sh] : r.total), h('b', {}, hr(sh ? r.minutes[sh] : r.minutes.total))])));
+    return body;
+  }
   function renderCalendar(body) {
     const all = recs(); body.appendChild(monthNav());
+    body.appendChild(h('div', { class: 'seg th-seg', id: 'thViewSeg' }, [['grid', 'Month'], ['agenda', 'Agenda']].map(([v, l]) => h('button', { class: (ui.view || 'grid') === v ? 'on' : '', 'data-view': v, onclick: () => { ui.view = v; ctx.render(); } }, l))));
+    body.appendChild(filterBar());
     const [y, m] = ui.ym.split('-').map(Number), first = new Date(y, m - 1, 1).getDay(), dim = new Date(y, m, 0).getDate(), bad = issueIds();
-    const grid = h('div', { class: 'cal th-cal' }, ctx.DOW.map((d) => h('div', { class: 'wd' }, d[0])));
-    for (let i = 0; i < first; i++) grid.appendChild(h('div', { class: 'cal-cell blank' }));
-    for (let d = 1; d <= dim; d++) {
-      const iso = `${ui.ym}-${String(d).padStart(2, '0')}`, day = Th.forDate(all, iso);
-      grid.appendChild(h('button', { class: 'cal-cell th-cell' + (iso === today() ? ' today' : '') + (ui.day === iso ? ' sel' : ''), 'data-date': iso, onclick: () => { ui.day = iso; ctx.render(); } }, [h('span', {}, d), h('i', { class: 'th-dots' }, day.map((r) => h('u', { class: 'd-' + Th.shiftMeta(r.shift).tone + (bad.has(r.id) ? ' bad' : '') })))]));
+    if ((ui.view || 'grid') === 'grid') {
+      const grid = h('div', { class: 'cal th-cal' }, ctx.DOW.map((d) => h('div', { class: 'wd' }, d[0])));
+      for (let i = 0; i < first; i++) grid.appendChild(h('div', { class: 'cal-cell blank' }));
+      for (let d = 1; d <= dim; d++) {
+        const iso = `${ui.ym}-${String(d).padStart(2, '0')}`, day = Th.forDate(all, iso).filter(passes), docs = dayDoctors(day);
+        grid.appendChild(h('button', { class: 'cal-cell th-cell' + (iso === today() ? ' today' : '') + (ui.day === iso ? ' sel' : '') + (day.length ? ' has' : ''), 'data-date': iso, 'aria-label': `${d}: ${docs.map(Th.shortName).join(', ') || 'no duty'}`, onclick: () => { ui.day = iso; ctx.render(); } }, [h('span', {}, d), h('i', { class: 'th-dots' }, [...docs.slice(0, 4).map((n) => h('u', { class: day.some((r) => bad.has(r.id)) ? 'bad' : '', style: `background:${colorOf(n)}`, title: n })), docs.length > 4 ? h('small', {}, '+' + (docs.length - 4)) : null])]));
+      }
+      body.appendChild(grid);
     }
-    body.appendChild(grid);
-    body.appendChild(h('div', { class: 'legend-row' }, Th.SHIFTS.map((s) => h('span', {}, [h('i', { class: 'd-' + s.tone, style: 'width:10px;height:10px;border-radius:50%;display:inline-block' }), ' ' + s.label]))));
-    const day = ui.day || today(); const list = Th.forDate(all, day);
-    body.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, fmtDay(day)), h('button', { onclick: () => editSheet(day, (Th.SHIFTS.find((s) => !list.some((r) => r.shift === s.id)) || Th.SHIFTS[0]).id) }, '+ Add duty')]));
-    if (!list.length) body.appendChild(h('div', { class: 'empty', style: 'padding:20px' }, [h('div', {}, 'No duty recorded for this date.')]));
-    list.forEach((r) => body.appendChild(dutyRow(r, { issues: bad })));
+    // legend: doctor colours (permanent) + shift icons
+    body.appendChild(h('div', { class: 'legend-row th-legend', id: 'thLegend' }, activeDocs().filter((d) => !d.off).map((d) => h('span', { 'data-legend': d.k }, [h('i', { class: 'th-swatch', style: `background:${colorOf(d.n)}` }), ' ' + Th.shortName(d.n)]))));
+    body.appendChild(h('div', { class: 'legend-row th-legend' }, Th.SHIFTS.map((sh) => h('span', {}, [h('span', { class: 'th-ic xs' }, icon(sh.id)), ' ' + sh.label]))));
+    if ((ui.view || 'grid') === 'agenda') {
+      const list = Th.inMonth(all, ui.ym).filter(passes).sort(Th.sortAsc); let last = '';
+      body.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, `${monthLabel(ui.ym)} — ${list.length} dut${list.length === 1 ? 'y' : 'ies'}`)]));
+      if (!list.length) body.appendChild(h('div', { class: 'empty', style: 'padding:20px' }, [h('div', {}, 'No duty matches in this month.')]));
+      for (const r of list) { if (r.date !== last) { last = r.date; body.appendChild(h('div', { class: 'th-agday' + (r.date === today() ? ' today' : ''), 'data-agenda-date': r.date }, fmtDay(r.date))); } body.appendChild(dutyRow(r, { issues: bad })); }
+    } else {
+      const day = ui.day || today(); const list = Th.forDate(all, day).filter(passes);
+      body.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, fmtDay(day)), h('button', { onclick: () => editSheet(day, (Th.SHIFTS.find((sh) => !Th.forDate(all, day).some((r) => r.shift === sh.id)) || Th.SHIFTS[0]).id) }, '+ Add duty')]));
+      if (!list.length) body.appendChild(h('div', { class: 'empty', style: 'padding:20px' }, [h('div', {}, (ui.fDoc || ui.fShift) ? 'No duty matches the filters for this date.' : 'No duty recorded for this date.')]));
+      list.forEach((r) => body.appendChild(dutyRow(r, { issues: bad })));
+    }
+    body.appendChild(h('div', { class: 'section-title' }, [h('h2', {}, 'Monthly workload')]));
+    body.appendChild(monthSummary(all));
   }
   function renderHistory(body) {
     const all = recs(), bad = issueIds();

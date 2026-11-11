@@ -43,13 +43,14 @@
     // workload comparison bars (hours)
     const max = Math.max(1, ...a.rows.map((r) => r.minutes.total)); doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.text('Workload comparison (hours worked)', 12, y); doc.setFont(undefined, 'normal'); y += 3;
     const COL = { morning: [245, 158, 11], evening: [13, 148, 136], night: [99, 82, 230] };
-    for (const r of a.rows.slice(0, 14)) { doc.text(Th.shortName(r.doctor).slice(0, 18), 12, y + 3); let x = 48; for (const s of ['morning', 'evening', 'night']) { const w = (r.minutes[s] / max) * 110; if (w > 0) { doc.setFillColor(...COL[s]); doc.rect(x, y, w, 4, 'F'); x += w; } } doc.text(`${num(hrs(r.minutes.total))} h · ${r.total} duties`, Math.min(x + 2, 165), y + 3); y += 6; }
+    for (const r of a.rows.slice(0, 14)) { { const hx = Th.colorOf(U().cfg(), r.doctor); doc.setFillColor(parseInt(hx.slice(1, 3), 16), parseInt(hx.slice(3, 5), 16), parseInt(hx.slice(5, 7), 16)); doc.circle(13.5, y + 2, 1.5, 'F'); } doc.text(Th.shortName(r.doctor).slice(0, 18), 17, y + 3); let x = 48; for (const s of ['morning', 'evening', 'night']) { const w = (r.minutes[s] / max) * 110; if (w > 0) { doc.setFillColor(...COL[s]); doc.rect(x, y, w, 4, 'F'); x += w; } } doc.text(`${num(hrs(r.minutes.total))} h · ${r.total} duties`, Math.min(x + 2, 165), y + 3); y += 6; }
     doc.setFontSize(7); [['Morning', COL.morning], ['Evening', COL.evening], ['Night', COL.night]].forEach(([l, c], i) => { doc.setFillColor(...c); doc.rect(12 + i * 28, y, 3, 3, 'F'); doc.text(l, 16.5 + i * 28, y + 2.6); }); y += 7;
     const head = (cols) => [cols]; const opts = { styles: { fontSize: 7.5, cellPadding: 1.6 }, headStyles: { fillColor: navy }, margin: { left: 12, right: 12 } };
-    doc.autoTable({ startY: y, head: head(ts[0].head), body: ts[0].rows, ...opts, didParseCell: (d) => { if (d.row.index === ts[0].rows.length - 1 && d.section === 'body') d.cell.styles.fontStyle = 'bold'; } });
+    const swatchCell = (d) => { if (d.section === 'body' && /^#[0-9A-F]{6}$/i.test(String(d.cell.raw))) { d.cell.styles.fillColor = [parseInt(d.cell.raw.slice(1, 3), 16), parseInt(d.cell.raw.slice(3, 5), 16), parseInt(d.cell.raw.slice(5, 7), 16)]; d.cell.styles.textColor = d.cell.styles.fillColor; } };
+    doc.autoTable({ startY: y, head: head(ts[0].head), body: ts[0].rows, ...opts, didParseCell: (d) => { swatchCell(d); if (d.row.index === ts[0].rows.length - 1 && d.section === 'body') d.cell.styles.fontStyle = 'bold'; } });
     doc.autoTable({ startY: doc.lastAutoTable.finalY + 6, head: head(ts[1].head), body: ts[1].rows, ...opts });
     if (ts[3].rows.length) { doc.setFontSize(9); doc.text('Entries needing attention', 12, doc.lastAutoTable.finalY + 10); doc.autoTable({ startY: doc.lastAutoTable.finalY + 12, head: head(ts[3].head), body: ts[3].rows, ...opts, headStyles: { fillColor: [180, 83, 9] } }); }
-    doc.addPage(); doc.setFontSize(11); doc.setTextColor(...navy); doc.text('Duty lines (one row per doctor per duty)', 12, 14); doc.autoTable({ startY: 18, head: head(ts[2].head), body: ts[2].rows, ...opts, styles: { fontSize: 6.8, cellPadding: 1.3 } });
+    doc.addPage(); doc.setFontSize(11); doc.setTextColor(...navy); doc.text('Duty lines (one row per doctor per duty)', 12, 14); doc.autoTable({ startY: 18, head: head(ts[2].head), body: ts[2].rows, ...opts, styles: { fontSize: 6.8, cellPadding: 1.3 }, didParseCell: swatchCell });
     const pages = doc.getNumberOfPages(); for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text('Counts: a duty is counted in the month it starts. Hours: actual recorded times, split at midnight between months.', 12, 291); doc.text(`Page ${i}/${pages}`, W - 24, 291); }
     doc.save(fname(a, 'pdf'));
   }
@@ -118,8 +119,19 @@
   }
   function doctorSheet(name, count, inactive, inRoster, names) {
     const u = U(), c = u.cfg(); let close; const sel = h('select', { class: 'input', id: 'thMergeTo' }, [h('option', { value: '' }, 'Choose the correct doctor…'), ...names.filter((x) => Th.canonKey(x) !== Th.canonKey(name)).map((x) => h('option', { value: x }, x))]);
+    const doc = Th.docOf(c, name), docId = doc ? doc.id : Th.idOfDoctor(c, name); let pick = Th.colorOf(c, name);
+    const hex = h('input', { class: 'input', id: 'thHex', value: pick, maxlength: 7, 'aria-label': 'Colour hex' }), picker = h('input', { type: 'color', id: 'thColor', value: pick, 'aria-label': 'Choose colour' });
+    const sw = h('div', { class: 'th-swatches' }); const setPick = (v) => { pick = v.toUpperCase(); hex.value = pick; picker.value = pick.toLowerCase(); [...sw.children].forEach((b) => b.classList.toggle('on', b.dataset.c === pick)); };
+    Th.PALETTE.forEach((col) => sw.appendChild(h('button', { type: 'button', 'data-c': col, 'aria-label': 'Colour ' + col, style: `background:${col}`, class: col === pick ? 'on' : '', onclick: () => setPick(col) })));
+    picker.addEventListener('input', () => setPick(picker.value)); hex.addEventListener('change', () => { if (Th.hexOk(hex.value.trim())) setPick(hex.value.trim()); else { toast('Use a colour like #2563EB'); hex.value = pick; } });
+    const nameIn = h('input', { class: 'input', id: 'thRename', value: name });
+    const colorBlock = h('div', { class: 'field' }, [h('label', {}, 'Colour (permanent — used in calendar, cards, analytics and exports)'), sw, h('div', { class: 'th-color-pick' }, [picker, hex]),
+      h('button', { class: 'btn btn-soft btn-block', id: 'thSaveColor', onclick: async () => { if (!Th.hexOk(pick)) return toast('Choose a valid colour'); const clash = Th.colorConflict(c, pick, docId); if (clash) return toast(`Too close to ${clash}'s colour — choose a more distinct one`);
+        const docs = doc ? Th.setColor(c, docId, pick) : [...c.docs, { id: docId, name: Th.display(name), color: pick.toUpperCase() }]; close(); await u.saveCfg({ docs }); ctx.render(); toast('Colour saved for ' + name); } }, 'Save colour')]);
+    const renameBlock = h('div', { class: 'field' }, [h('label', {}, 'Display name'), nameIn, h('small', { class: 'muted' }, 'Renaming keeps the doctor’s colour and all past duties.'),
+      h('button', { class: 'btn btn-soft btn-block', id: 'thRenameGo', style: 'margin-top:8px', onclick: async () => { const nn = Th.clean(nameIn.value); if (!nn || Th.canonKey(nn) === Th.canonKey(name)) return toast('Enter a different name'); if (!doc) return toast('Add this doctor to the list first'); const patch = Th.renamePatch(c, docId, nn); if (!patch) return toast('That name is already used by another doctor'); close(); await u.saveCfg(patch); ctx.render(); toast('Renamed to ' + Th.display(nn)); } }, 'Rename')]);
     const body = h('div', {}, [
-      h('p', { class: 'muted', style: 'margin-top:0' }, `${count} duties recorded for ${name}.`),
+      h('p', { class: 'muted', style: 'margin-top:0' }, `${count} duties recorded for ${name}.`), colorBlock, renameBlock,
       h('button', { class: 'btn btn-block', id: 'thToggleDoc', onclick: async () => { close(); const k = Th.canonKey(name); if (inactive) await u.saveCfg({ inactive: c.inactive.filter((x) => Th.canonKey(x) !== k), roster: Th.uniq([...c.roster, name], u.resolve()) });
         else if (count === 0) await u.saveCfg({ roster: c.roster.filter((x) => Th.canonKey(x) !== k), shifts: Object.fromEntries(Th.SHIFTS.map((s) => [s.id, { ...c.shifts[s.id], doctors: c.shifts[s.id].doctors.filter((x) => Th.canonKey(x) !== k) }])) });
         else await u.saveCfg({ inactive: Th.uniq([...c.inactive, name], u.resolve()) }); ctx.render(); toast(inactive ? name + ' is back in the pick-lists' : name + ' removed from the pick-lists'); } }, inactive ? 'Show in pick-lists again' : count ? 'Remove from pick-lists (keep history)' : 'Remove doctor'),
