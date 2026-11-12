@@ -155,7 +155,7 @@ const App = (() => {
     hospitals: ['THANC Hospital', 'Yaal Hospital'], hospitalsSeeded: true, consultants: [], surgeries: [],
     lastMode: '', autoLockMin: 2,
     // V8
-    entryMode: 'quick', theme: 'dark', uiV11: true, paedAgeMax: 16, geriatricAgeMin: 65, lastBackupAt: null, backupRemindDays: 30,
+    entryMode: 'quick', theme: 'light', uiV11: true, uiV12: true, paedAgeMax: 16, geriatricAgeMin: 65, lastBackupAt: null, backupRemindDays: 30,
   });
   const hospitalList = () => [...new Set([state.settings.hospital, ...(state.settings.hospitals || [])].filter(Boolean))];
 
@@ -168,6 +168,7 @@ const App = (() => {
   async function loadSettings() {
     const rec = await DB.get('meta', 'settings');
     state.settings = { ...defaultSettings(), ...(rec ? await CryptoModule.decryptJSON(state.key, rec.value) : {}) };
+    if (!state.settings.uiV12) { state.settings.uiV12 = true; state.settings.uiV11 = true; state.settings.theme = 'light'; await saveSettings(); } // v12 pastel look is the default (Dark / Match phone stay in Settings)
     if (!state.settings.uiV11) { state.settings.uiV11 = true; if (state.settings.theme === 'auto') state.settings.theme = 'dark'; await saveSettings(); } // v11 look: dark by default (Light / Match phone remain in Settings)
     if (!state.settings.hospitalsSeeded) { // one-time: add the hospitals you work at to existing installs
       for (const n of ['THANC Hospital', 'Yaal Hospital']) if (!state.settings.hospitals.includes(n)) state.settings.hospitals.push(n);
@@ -229,6 +230,7 @@ const App = (() => {
   // lock / unlock / setup
   // ------------------------------------------------------------------
   async function boot() {
+    applyTheme(); // remembered Day/Night choice also styles the lock screen
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('popstate', onPop);
     for (const ev of ['pointerdown', 'keydown', 'touchstart', 'scroll']) document.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true, capture: true });
@@ -435,11 +437,20 @@ const App = (() => {
     const value = { version: Schema.VERSION, app: Schema.APP_VERSION, from, migrated_at: new Date().toISOString(), counts: { cases: state.cases.length, preops: state.preops.length, duties: state.duties.length } };
     await DB.put('meta', { key: 'schema', value });
   }
+  /** Day / Night / Auto by time (night 7 pm – 7 am, re-checked every few minutes) / Match phone. */
+  let themeTimer = null;
+  const nightNow = () => { const hr = new Date().getHours(); return hr >= 19 || hr < 7; };
   function applyTheme() {
-    const t = state.settings?.theme || 'dark';
+    let saved = null; try { saved = localStorage.getItem('theme-pref'); } catch (e) { /* storage blocked */ }
+    const pref = state.settings?.theme || saved || 'light';
+    if (state.settings?.theme) try { localStorage.setItem('theme-pref', state.settings.theme); } catch (e) { /* storage blocked */ }
+    const t = pref === 'time' ? (nightNow() ? 'dark' : 'light') : pref;
     document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.dataset.themePref = pref;
+    clearInterval(themeTimer); themeTimer = null;
+    if (pref === 'time') themeTimer = setInterval(() => { const want = nightNow() ? 'dark' : 'light'; if (document.documentElement.getAttribute('data-theme') !== want) applyTheme(); }, 5 * 60 * 1000);
     const dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#252525' : '#F4F4F8'));
+    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#252525' : '#7654E8'));
   }
 
   function enterApp() {
@@ -1520,7 +1531,7 @@ const App = (() => {
     screen.appendChild(pageHead('Settings', 'Profile & security', null, 'more'));
     const sel = (id, opts, get, set) => h('select', { class: 'input', id, onchange: async (e) => { await set(e.target.value); } }, opts.map(([v, l]) => h('option', { value: v, ...(String(get()) === String(v) ? { selected: true } : {}) }, l)));
     screen.appendChild(h('div', { class: 'card' }, [h('h3', {}, 'Appearance & entry'),
-      h('div', { class: 'field' }, [h('label', {}, 'Theme'), sel('themeSel', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Match phone']], () => s.theme || 'auto', async (v) => { s.theme = v; applyTheme(); await saveSettings(); toast('Theme updated'); })]),
+      h('div', { class: 'field' }, [h('label', {}, 'Theme'), sel('themeSel', [['light', 'Day mode (pastel)'], ['dark', 'Night mode'], ['time', 'Auto — Night from 7 pm to 7 am'], ['auto', 'Match phone setting']], () => s.theme || 'light', async (v) => { s.theme = v; applyTheme(); await saveSettings(); toast('Theme updated'); })]),
       h('div', { class: 'field' }, [h('label', {}, 'Case entry form'), sel('entrySel', [['quick', 'Quick (essentials first)'], ['detailed', 'Detailed (all sections)']], () => s.entryMode || 'quick', async (v) => { s.entryMode = v; await saveSettings(); toast('Saved'); })]),
       h('div', { class: 'grid2' }, [
         h('div', { class: 'field' }, [h('label', {}, 'Paediatric: under (years)'), h('input', { class: 'input', id: 'paedAge', type: 'number', inputmode: 'numeric', min: '1', max: '30', value: s.paedAgeMax ?? 16, onchange: async (e) => { const n = Number(e.target.value); if (n >= 1 && n <= 30) { s.paedAgeMax = n; await saveSettings(); toast('Saved'); } } })]),

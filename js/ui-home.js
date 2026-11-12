@@ -54,6 +54,7 @@
       h('div', { class: 'home-title' }, [h('small', {}, `${greet} · ${fmtDay(today)}`), h('h1', {}, 'Anaesthesia Log')]),
       h('div', { class: 'home-actions' }, [
         h('button', { class: 'icon-btn', id: 'hSearch', 'aria-label': 'Search', onclick: () => go('search') }, ic('search')),
+        h('button', { class: 'icon-btn', id: 'hTheme', 'aria-label': 'Switch day / night mode', onclick: () => X.toggleTheme && X.toggleTheme() }, ic(X.isDark && X.isDark() ? 'sun' : 'moon')),
         h('button', { class: 'icon-btn', id: 'hBell', 'aria-label': 'Notifications', onclick: openAlerts }, [ic('bell'), nAlerts ? h('i', { class: 'badge' }, String(nAlerts)) : null]),
         h('button', { class: 'icon-btn', 'aria-label': 'Lock', onclick: ctx.lockNow }, ic('lock')),
         h('button', { class: 'icon-btn avatar-btn', id: 'hProfile', 'aria-label': 'Profile and settings', onclick: () => go('settings') }, initials),

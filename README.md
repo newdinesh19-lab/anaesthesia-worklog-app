@@ -257,3 +257,16 @@ Look and layout only; PIN, encryption, IndexedDB, OCR, THANC, photo editor and e
 - **Phone:** slide-in menu drawer, compact header, week strip (tap a day), 2-up summary cards, bottom navigation, no horizontal overflow at 320–390 px.
 - Code: `js/ui-shell.js` (shell + dashboard), small hooks in `app.js`/`ui-home.js`.
 Limits: tested in Chromium emulation, not on a physical Android phone. Excel exports cannot carry cell colours.
+
+## v12.0.0 — Pastel claymorphism redesign
+Visual layer only: no change to database, encryption, PIN, OCR, THANC logic, exports or routing.
+- **Design system** (`css/clay.css`, loaded last): Lavender #A78BFA, deep violet #7654E8, cyan #65DDD2, soft blue #DCE8FF, background #F3F3FF, surface #FFFFFF, text #252343 / #77758F. 22 px radius, layered clay shadows, pressed states, gradient accent buttons, inset neumorphic inputs. Light (pastel) is the new default; Dark and Match phone remain in Settings and on the top-bar toggle.
+- **Illustrations** (`img/clay-hero.svg`, `img/clay-empty.svg`, offline-cached): 3D-style monitor/syringe/capsule hero on Home and the lock/upgrade screens; clipboard illustration on every empty state.
+- **Home**: violet hero with greeting, date and Today / Documented / Pending (/ Planned) counts; six 3D quick tiles (Add Case, My Cases, OT Schedule, Duty Roster, Analytics, Settings); week strip; swipeable "Today's OT cases" floating cards (doctor colour strip, Documented/Pending/Emergency badges); month completion ring; THANC duty card; upcoming planned cases; violet analytics panel with 3D pill bars. All numbers from saved records.
+- **Navigation**: violet bottom bar with a raised centre Add button (phone); glass sidebar with gradient active item (desktop).
+- Clinical text stays on solid white/dark surfaces; doctor colours unchanged.
+
+## v12.1.0 — Day / Night modes and refinement pass
+- **Theme modes** (Settings → Theme): Day mode (pastel), Night mode, Auto (Night from 7 pm to 7 am, re-checked every 5 min), Match phone setting. One-tap sun/moon toggle in the phone header and desktop top bar. The choice is remembered on the device so the lock screen opens in the same mode.
+- **Contrast fixes** (automated audit of every screen, Day + Night, phone + desktop): notification and sidebar badges, THANC "Add"/"Mark duty" labels, anaesthetist tag/avatar colours in Day mode, doctor initials on OT cards in Night mode, More-hub icon tiles in Night mode.
+- Verified: no console errors and no horizontal overflow on any screen; case editing persists and updates the dashboard; full regression suite passes.

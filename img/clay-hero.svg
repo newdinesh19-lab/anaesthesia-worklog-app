@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 200" role="img" aria-label="Anaesthesia monitor illustration">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6E0FF"/></linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B2F7A"/><stop offset="1" stop-color="#241C55"/></linearGradient>
+    <linearGradient id="vio" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B9A2FF"/><stop offset="1" stop-color="#7654E8"/></linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9BF0E6"/><stop offset="1" stop-color="#3CC7BA"/></linearGradient>
+    <linearGradient id="pink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFC2DA"/><stop offset="1" stop-color="#FF7EAE"/></linearGradient>
+    <linearGradient id="barrel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E9E6FA"/></linearGradient>
+    <radialGradient id="shine" cx=".3" cy=".25" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#5B3FD0" flood-opacity=".28"/></filter>
+  </defs>
+  <ellipse cx="128" cy="184" rx="92" ry="9" fill="#5B3FD0" opacity=".16"/>
+  <!-- monitor stand -->
+  <rect x="116" y="138" width="24" height="34" rx="8" fill="url(#vio)" filter="url(#soft)"/>
+  <rect x="88" y="166" width="80" height="16" rx="8" fill="url(#body)" filter="url(#soft)"/>
+  <!-- monitor -->
+  <g filter="url(#soft)">
+    <rect x="48" y="26" width="160" height="118" rx="26" fill="url(#body)"/>
+    <rect x="62" y="40" width="132" height="84" rx="16" fill="url(#screen)"/>
+    <path d="M70 92h22l7-18 10 34 10-26 7 10h24" fill="none" stroke="#65DDD2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="160" y="72" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">98</text>
+    <text x="161" y="86" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700" fill="#A78BFA">SpO₂</text>
+    <text x="160" y="110" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="800" fill="#FFB3CF">72</text>
+    <circle cx="186" cy="134" r="4" fill="#65DDD2"/><circle cx="174" cy="134" r="4" fill="#A78BFA"/>
+    <rect x="48" y="26" width="160" height="60" rx="26" fill="url(#shine)" opacity=".35"/>
+  </g>
+  <!-- syringe -->
+  <g transform="rotate(-32 215 120)" filter="url(#soft)">
+    <rect x="196" y="110" width="58" height="20" rx="10" fill="url(#barrel)"/>
+    <rect x="200" y="114" width="30" height="12" rx="6" fill="url(#cyan)"/>
+    <rect x="252" y="114" width="16" height="12" rx="5" fill="url(#vio)"/>
+    <rect x="186" y="117" width="12" height="6" rx="3" fill="#C9C2EE"/>
+    <rect x="172" y="119" width="16" height="2.4" rx="1.2" fill="#9C93C9"/>
+  </g>
+  <!-- capsule -->
+  <g transform="rotate(28 34 150)" filter="url(#soft)">
+    <rect x="12" y="140" width="46" height="20" rx="10" fill="#FFFFFF"/>
+    <path d="M35 140h13a10 10 0 0 1 0 20H35z" fill="url(#pink)"/>
+    <ellipse cx="24" cy="145" rx="8" ry="3" fill="#fff" opacity=".8"/>
+  </g>
+  <!-- heart -->
+  <g filter="url(#soft)" transform="translate(18 34)">
+    <path d="M22 38C6 28 0 18 4 10c4-8 14-8 18 0 4-8 14-8 18 0 4 8-2 18-18 28z" fill="url(#pink)"/>
+    <ellipse cx="12" cy="12" rx="5" ry="3" fill="#fff" opacity=".7"/>
+  </g>
+  <!-- floating spheres -->
+  <circle cx="226" cy="40" r="12" fill="url(#cyan)" filter="url(#soft)"/><circle cx="222" cy="36" r="4" fill="#fff" opacity=".75"/>
+  <circle cx="32" cy="104" r="7" fill="url(#vio)" filter="url(#soft)"/>
+  <circle cx="240" cy="168" r="6" fill="#DCE8FF" filter="url(#soft)"/>
+</svg>

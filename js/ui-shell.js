@@ -52,12 +52,13 @@
   }
 
   // ------------------------------------------------------------------ top bar
+  const isDark = () => { const c = document.documentElement.getAttribute('data-theme'); return c === 'dark' || (c === 'auto' && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); };
   function setTheme() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-    state.settings.theme = cur === 'light' ? 'dark' : 'light'; ctx.applyTheme(); ctx.saveSettings().catch(() => {}); ctx.render();
+    const cur = document.documentElement.getAttribute('data-theme'), darkNow = cur === 'dark' || (cur === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    state.settings.theme = darkNow ? 'light' : 'dark'; ctx.applyTheme(); ctx.saveSettings().catch(() => {}); ctx.render(); ctx.toast(darkNow ? 'Day mode' : 'Night mode');
   }
   function topbar() {
-    const n = X.homeAlerts ? X.homeAlerts().length : 0, dark = (document.documentElement.getAttribute('data-theme') || 'dark') !== 'light';
+    const n = X.homeAlerts ? X.homeAlerts().length : 0, dark = isDark();
     return h('header', { class: 'topbar' }, [
       h('button', { class: 'tb-menu icon-btn', id: 'tbMenu', 'aria-label': 'Menu', onclick: () => document.getElementById('app').classList.toggle('drawer-open') }, ic('list')),
       h('button', { class: 'tb-search', id: 'tbSearch', onclick: () => go('search') }, [ic('search'), h('span', {}, 'Search cases, patients, duties…')]),
@@ -200,11 +201,65 @@
     return h('div', { class: 'weekstrip', id: 'weekStrip' }, Array.from({ length: 7 }, (_, i) => { const d = shiftDay(mon, i), n = all.filter((c) => c.case_date === d).length, du = recs.some((r) => r.date === d);
       return h('button', { class: 'ws-d' + (d === today ? ' today' : ''), 'data-date': d, onclick: () => go('day', d) }, [h('small', {}, ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]), h('b', {}, String(parseISO(d).getDate())), h('i', {}, [n ? h('u', { class: 'c' }) : null, du ? h('u', { class: 'd' }) : null])]); }));
   }
+  // ---------------- v12 clay dashboard
+  const greet = () => { const hh = new Date().getHours(); return hh < 12 ? 'Good morning' : hh < 17 ? 'Good afternoon' : 'Good evening'; };
+  function hero() {
+    const today = todayISO(), all = ctx.activeCases(), list = all.filter((c) => c.case_date === today), done = list.filter(isComplete).length;
+    const planned = (typeof Schedule !== 'undefined' ? Schedule.upcoming(Schedule.plansOf(state.templates)).filter((p) => p.date === today) : []).length;
+    const stat = (n, l, cls, id) => h('div', { class: 'hs ' + cls, id }, [h('b', {}, String(n)), h('small', {}, l)]);
+    return h('section', { class: 'clay-hero', id: 'welcome' }, [
+      h('div', { class: 'ch-text' }, [h('small', { class: 'ch-date' }, fmtDay(today)), h('h2', {}, [`${greet()},`, h('br'), me()]), h('p', { class: 'ch-sub' }, list.length ? `${list.length} OT case${list.length === 1 ? '' : 's'} logged today` : 'Ready for today’s list')]),
+      h('img', { class: 'ch-art', src: 'img/clay-hero.svg', alt: '', width: 260, height: 200, decoding: 'async' }),
+      h('div', { class: 'ch-stats' }, [stat(list.length, 'Today', 'hs-a', 'hsToday'), stat(done, 'Documented', 'hs-b', 'hsDone'), stat(list.length - done, 'Pending', 'hs-c', 'hsPend'), planned ? stat(planned, 'Planned', 'hs-d', 'hsPlan') : null]),
+    ]);
+  }
+  function tiles() {
+    const t = (id, icon, label, cls, fn) => h('button', { class: 'tile3d ' + cls, id, onclick: fn }, [h('span', { class: 't3-ic' }, ic(icon)), h('span', { class: 't3-l' }, label)]);
+    return h('section', { class: 'tiles3d', id: 'tiles3d', 'aria-label': 'Quick access' }, [
+      t('tAdd', 'plus', 'Add Case', 'k-violet', () => go('add')),
+      t('tCases', 'list', 'My Cases', 'k-green', () => { state.casesView = 'list'; go('cases'); }),
+      t('tSched', 'calendar', 'OT Schedule', 'k-blue', () => go('schedule')),
+      t('tDuty', 'moon', 'Duty Roster', 'k-cyan', () => go('thanc')),
+      t('tAna', 'pie', 'Analytics', 'k-pink', () => go('analytics')),
+      t('tSet', 'gear', 'Settings', 'k-amber', () => go('settings')),
+    ]);
+  }
+  const emptyArt = (text, btn) => h('div', { class: 'clay-empty' }, [h('img', { src: 'img/clay-empty.svg', alt: '', width: 150, height: 108 }), h('p', {}, text), btn || null]);
+  function otCases() {
+    const today = todayISO(), list = ctx.casesForDate(today), tech = (c) => Schema.techniquesOf(c).join(' + ') || c.anaesthesia_mode || 'Technique not entered';
+    const card = (c, i) => { const ok = isComplete(c), col = TONE_VAR[toneOf(c.anaesthetist)]; return h('button', { class: 'ot-card', 'data-case': c.case_id, style: `--dc:${col}`, onclick: () => go('day', today) }, [
+      h('div', { class: 'ot-top' }, [h('span', { class: 'ot-no' }, String(i + 1)), h('span', { class: 'ot-st ' + (ok ? 'ok' : 'pend') }, ok ? 'Documented' : 'Pending'), c.urgency === 'Emergency' ? h('span', { class: 'ot-st em' }, 'Emergency') : null]),
+      h('b', { class: 'ot-name' }, c.patient_name || '(no name)'), h('small', { class: 'ot-meta' }, [c.age ? `${c.age}/${(c.sex || '?')[0]} · ` : '', c.uhid || 'No UHID']),
+      h('div', { class: 'ot-surg' }, c.surgery || 'Surgery not entered'), h('div', { class: 'ot-tech' }, tech(c)),
+      h('div', { class: 'ot-foot' }, [h('span', { class: 'ot-doc', style: `background:${col}` }, initialsOf(c.anaesthetist || '?')), h('small', {}, shortName(c.anaesthetist || ''))])]); };
+    return h('section', { class: 'clay-sec', id: 'otToday' }, [h('div', { class: 'cs-head' }, [h('h3', {}, "Today's OT cases"), h('button', { class: 'cs-link', onclick: () => go('day', today) }, list.length ? 'View all' : '')]),
+      list.length ? h('div', { class: 'ot-scroll' }, list.map(card)) : emptyArt('No cases logged today yet.', h('button', { class: 'btn btn-primary', id: 'otAdd', onclick: () => go('add') }, [ic('plus'), 'Add a case']))]);
+  }
+  function progress() {
+    const today = todayISO(), all = ctx.activeCases(), ym = today.slice(0, 7), month = all.filter((c) => c.case_date.startsWith(ym)), done = month.filter(isComplete).length, pend = month.length - done, pct = month.length ? Math.round((done / month.length) * 100) : 0;
+    const allPend = all.filter((c) => !isComplete(c)).length;
+    return h('section', { class: 'clay-card prog', id: 'progCard' }, [h('div', { class: 'cs-head' }, [h('h3', {}, `${monthLabel(ym)}`), h('span', { class: 'cs-sub' }, `${month.length} case${month.length === 1 ? '' : 's'}`)]),
+      h('div', { class: 'prog-row' }, [h('div', { class: 'ring', style: `--p:${pct}`, role: 'img', 'aria-label': `${pct}% documented` }, h('b', {}, `${pct}%`)),
+        h('div', { class: 'prog-k' }, [h('div', {}, [h('i', { class: 'dot ok' }), h('b', {}, String(done)), ' completed']), h('div', {}, [h('i', { class: 'dot pend' }), h('b', {}, String(pend)), ' pending']), allPend > pend ? h('small', { class: 'cs-sub' }, `${allPend} pending overall`) : null])]),
+      allPend ? h('button', { class: 'btn btn-soft btn-block', id: 'progFix', onclick: () => { state.casesView = 'list'; state.filters = { ...ctx.emptyFilters(''), incomplete: true }; go('cases'); } }, 'Complete pending entries') : null]);
+  }
+  function upcoming() {
+    if (typeof Schedule === 'undefined') return null;
+    const now = new Date(), up = Schedule.upcoming(Schedule.plansOf(state.templates)).slice(0, 4);
+    const tm = (t) => { if (!t) return 'time not set'; const [hh, mm] = t.split(':').map(Number); return `${((hh + 11) % 12) + 1}:${pad(mm)} ${hh < 12 ? 'am' : 'pm'}`; };
+    return h('section', { class: 'clay-sec', id: 'upCases' }, [h('div', { class: 'cs-head' }, [h('h3', {}, 'Upcoming cases'), h('button', { class: 'cs-link', onclick: () => go('schedule') }, 'Schedule')]),
+      up.length ? h('div', { class: 'up-list' }, up.map((p, i) => h('button', { class: 'up-row', onclick: () => go('schedule') }, [h('span', { class: 'up-ic k' + (i % 3) }, [h('b', {}, String(parseISO(p.date).getDate())), h('small', {}, MON[parseISO(p.date).getMonth()])]),
+        h('span', { class: 'up-t' }, [h('b', {}, p.surgery || 'Planned case'), h('small', {}, `${tm(p.time)} · ${[p.hospital, p.location].filter(Boolean).join(' · ') || 'Place not set'}`)]), h('span', { class: 'up-when' }, Schedule.until(p, now))]))) :
+        emptyArt('Nothing planned. Add upcoming OT cases to get reminders.', h('button', { class: 'btn btn-soft', id: 'upPlan', onclick: () => go('schedule') }, [ic('calendar'), 'Open OT schedule']))]);
+  }
   function homeTop(screen) {
-    screen.appendChild(welcome()); screen.appendChild(weekStrip());
-    screen.appendChild(h('div', { class: 'hgrid' }, [casesTodayCard(), monthlyCard(), thancCard(), quickCard()]));
+    screen.classList.add('home-screen');
+    screen.appendChild(hero()); screen.appendChild(tiles()); screen.appendChild(weekStrip());
+    screen.appendChild(otCases());
+    screen.appendChild(h('div', { class: 'clay-grid' }, [progress(), thancCard()]));
+    const up = upcoming(); if (up) screen.appendChild(up);
     screen.appendChild(analyticsCard());
   }
 
-  return { api: { shell, homeTop } };
+  return { api: { shell, toggleTheme: setTheme, isDark, homeTop } };
 });
