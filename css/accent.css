@@ -1,0 +1,44 @@
+/* v13 colour options. Blue is the original v10 look; other accents only change brand colour, tabs, buttons and headers.
+   Doctor / anaesthetist colours (--a0..a2, THANC doctor colours) are deliberately untouched. */
+:root[data-accent="teal"]   { --brand: #0D9488; --brand-2: #0D9488; --mint: #e0f5f2; --glow: rgba(13, 148, 136, .24); --grad-logo: #0D9488; --grad-hero: linear-gradient(135deg, #134e4a, #0f766e); --grad-night: linear-gradient(135deg, #134e4a, #0f766e); }
+:root[data-accent="violet"] { --brand: #7C3AED; --brand-2: #7C3AED; --mint: #f1eaff; --glow: rgba(124, 58, 237, .24); --grad-logo: #7C3AED; --grad-hero: linear-gradient(135deg, #2e1065, #5b21b6); --grad-night: linear-gradient(135deg, #2e1065, #5b21b6); }
+:root[data-accent="rose"]   { --brand: #E11D48; --brand-2: #E11D48; --mint: #ffe8ee; --glow: rgba(225, 29, 72, .22); --grad-logo: #E11D48; --grad-hero: linear-gradient(135deg, #4c0519, #9f1239); --grad-night: linear-gradient(135deg, #4c0519, #9f1239); }
+:root[data-accent="orange"] { --brand: #C2410C; --brand-2: #C2410C; --mint: #ffeddf; --glow: rgba(194, 65, 12, .22); --grad-logo: #EA580C; --grad-hero: linear-gradient(135deg, #431407, #9a3412); --grad-night: linear-gradient(135deg, #431407, #9a3412); }
+:root[data-accent="green"]  { --brand: #15803D; --brand-2: #15803D; --mint: #e3f6e9; --glow: rgba(21, 128, 61, .22); --grad-logo: #16A34A; --grad-hero: linear-gradient(135deg, #052e16, #166534); --grad-night: linear-gradient(135deg, #052e16, #166534); }
+/* Night variants (explicit Night, and Match phone when the phone is dark) */
+:root[data-accent="teal"][data-theme="dark"]   { --brand: #2dd4bf; --brand-2: #2dd4bf; --mint: #0f3a3a; --glow: rgba(45, 212, 191, .28); --grad-hero: linear-gradient(135deg, #0f3a3a, #0f766e); }
+:root[data-accent="violet"][data-theme="dark"] { --brand: #a78bfa; --brand-2: #a78bfa; --mint: #2a2155; --glow: rgba(167, 139, 250, .3); --grad-hero: linear-gradient(135deg, #2a1a5e, #5b21b6); }
+:root[data-accent="rose"][data-theme="dark"]   { --brand: #fb7185; --brand-2: #fb7185; --mint: #46202a; --glow: rgba(251, 113, 133, .28); --grad-hero: linear-gradient(135deg, #4c0519, #9f1239); }
+:root[data-accent="orange"][data-theme="dark"] { --brand: #fb923c; --brand-2: #fb923c; --mint: #3d2411; --glow: rgba(251, 146, 60, .28); --grad-hero: linear-gradient(135deg, #431407, #9a3412); }
+:root[data-accent="green"][data-theme="dark"]  { --brand: #4ade80; --brand-2: #4ade80; --mint: #0f3320; --glow: rgba(74, 222, 128, .26); --grad-hero: linear-gradient(135deg, #052e16, #166534); }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="teal"]:not([data-theme])   { --brand: #2dd4bf; --brand-2: #2dd4bf; --mint: #0f3a3a; --grad-hero: linear-gradient(135deg, #0f3a3a, #0f766e); }
+  :root[data-accent="violet"]:not([data-theme]) { --brand: #a78bfa; --brand-2: #a78bfa; --mint: #2a2155; --grad-hero: linear-gradient(135deg, #2a1a5e, #5b21b6); }
+  :root[data-accent="rose"]:not([data-theme])   { --brand: #fb7185; --brand-2: #fb7185; --mint: #46202a; --grad-hero: linear-gradient(135deg, #4c0519, #9f1239); }
+  :root[data-accent="orange"]:not([data-theme]) { --brand: #fb923c; --brand-2: #fb923c; --mint: #3d2411; --grad-hero: linear-gradient(135deg, #431407, #9a3412); }
+  :root[data-accent="green"]:not([data-theme])  { --brand: #4ade80; --brand-2: #4ade80; --mint: #0f3320; --grad-hero: linear-gradient(135deg, #052e16, #166534); }
+}
+/* dark accents are light colours: keep text on solid accent backgrounds readable */
+:root[data-theme="dark"] .btn-primary, :root[data-theme="dark"] .chip.on, :root[data-theme="dark"] .seg button.on, :root[data-theme="dark"] .avatar-btn, :root[data-theme="dark"] .dock .add .ic { color: #0b1226; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) .btn-primary, :root:not([data-theme]) .chip.on, :root:not([data-theme]) .seg button.on, :root:not([data-theme]) .avatar-btn, :root:not([data-theme]) .dock .add .ic { color: #0b1226; } }
+
+/* colour picker */
+.accent-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.accent-sw { position: relative; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--card); box-shadow: 0 0 0 1.5px var(--line); cursor: pointer; display: grid; place-items: center; overflow: hidden; }
+.accent-sw.on { box-shadow: 0 0 0 3px var(--ink); }
+.accent-sw.on::after { content: ""; width: 12px; height: 7px; border-left: 3px solid #fff; border-bottom: 3px solid #fff; transform: translateY(-2px) rotate(-45deg); }
+.a-blue { background: #2563EB; } .a-teal { background: #0D9488; } .a-violet { background: #7C3AED; } .a-rose { background: #E11D48; } .a-orange { background: #EA580C; } .a-green { background: #16A34A; }
+.a-custom { background: conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444); }
+.a-custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
+/* contrast fixes carried over from the v12.1 audit */
+.badge { background: #DC2626; }
+.th-am { --th-ink: #A14A06; } .th-pm { --th-ink: #0B6E66; } .th-nt { --th-ink: #4F35C8; }
+:root[data-theme="dark"] .th-am { --th-ink: #FBBF24; } :root[data-theme="dark"] .th-pm { --th-ink: #5EEAD4; } :root[data-theme="dark"] .th-nt { --th-ink: #C4B5FD; }
+.th-add, .th-mark:not(.big) { color: var(--th-ink, var(--th)); }
+/* Night: accent colours are light, so solid accent tiles with white text get a deeper shade */
+:root[data-theme="dark"] .qa-grid .hero.qa-primary { background: color-mix(in srgb, var(--brand) 55%, #0b1226); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) .qa-grid .hero.qa-primary { background: color-mix(in srgb, var(--brand) 55%, #0b1226); } }
+/* six header buttons: keep the app name readable on phones */
+@media (max-width: 440px) { .home-actions { gap: 4px; } .home-actions .icon-btn { width: 38px; height: 38px; } .home-title h1 { font-size: 19px; } }
+@media (max-width: 360px) { .home-actions .icon-btn { width: 34px; height: 34px; } .home-title h1 { font-size: 17px; } }

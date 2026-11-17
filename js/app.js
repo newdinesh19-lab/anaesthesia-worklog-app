@@ -48,10 +48,6 @@ const App = (() => {
   }
 
   const ICONS = {
-    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
-    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -155,7 +151,7 @@ const App = (() => {
     hospitals: ['THANC Hospital', 'Yaal Hospital'], hospitalsSeeded: true, consultants: [], surgeries: [],
     lastMode: '', autoLockMin: 2,
     // V8
-    entryMode: 'quick', theme: 'light', uiV11: true, uiV12: true, paedAgeMax: 16, geriatricAgeMin: 65, lastBackupAt: null, backupRemindDays: 30,
+    entryMode: 'quick', theme: 'auto', paedAgeMax: 16, geriatricAgeMin: 65, lastBackupAt: null, backupRemindDays: 30,
   });
   const hospitalList = () => [...new Set([state.settings.hospital, ...(state.settings.hospitals || [])].filter(Boolean))];
 
@@ -168,8 +164,6 @@ const App = (() => {
   async function loadSettings() {
     const rec = await DB.get('meta', 'settings');
     state.settings = { ...defaultSettings(), ...(rec ? await CryptoModule.decryptJSON(state.key, rec.value) : {}) };
-    if (!state.settings.uiV12) { state.settings.uiV12 = true; state.settings.uiV11 = true; state.settings.theme = 'light'; await saveSettings(); } // v12 pastel look is the default (Dark / Match phone stay in Settings)
-    if (!state.settings.uiV11) { state.settings.uiV11 = true; if (state.settings.theme === 'auto') state.settings.theme = 'dark'; await saveSettings(); } // v11 look: dark by default (Light / Match phone remain in Settings)
     if (!state.settings.hospitalsSeeded) { // one-time: add the hospitals you work at to existing installs
       for (const n of ['THANC Hospital', 'Yaal Hospital']) if (!state.settings.hospitals.includes(n)) state.settings.hospitals.push(n);
       state.settings.hospitalsSeeded = true; await saveSettings();
@@ -230,7 +224,7 @@ const App = (() => {
   // lock / unlock / setup
   // ------------------------------------------------------------------
   async function boot() {
-    applyTheme(); // remembered Day/Night choice also styles the lock screen
+    applyTheme(); // remembered Day/Night + colour also style the lock screen
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('popstate', onPop);
     for (const ev of ['pointerdown', 'keydown', 'touchstart', 'scroll']) document.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true, capture: true });
@@ -437,21 +431,55 @@ const App = (() => {
     const value = { version: Schema.VERSION, app: Schema.APP_VERSION, from, migrated_at: new Date().toISOString(), counts: { cases: state.cases.length, preops: state.preops.length, duties: state.duties.length } };
     await DB.put('meta', { key: 'schema', value });
   }
-  /** Day / Night / Auto by time (night 7 pm – 7 am, re-checked every few minutes) / Match phone. */
+  /** Day / Night / Auto by time (Night 7 pm – 7 am) / Match phone, plus an accent colour.
+   *  The choice is also kept in localStorage (not sensitive) so the lock screen opens in the same look. */
+  const ACCENTS = { blue: 'Blue', teal: 'Teal', violet: 'Violet', rose: 'Rose', orange: 'Orange', green: 'Green' };
   let themeTimer = null;
   const nightNow = () => { const hr = new Date().getHours(); return hr >= 19 || hr < 7; };
-  function applyTheme() {
-    let saved = null; try { saved = localStorage.getItem('theme-pref'); } catch (e) { /* storage blocked */ }
-    const pref = state.settings?.theme || saved || 'light';
-    if (state.settings?.theme) try { localStorage.setItem('theme-pref', state.settings.theme); } catch (e) { /* storage blocked */ }
-    const t = pref === 'time' ? (nightNow() ? 'dark' : 'light') : pref;
-    document.documentElement.setAttribute('data-theme', t);
-    document.documentElement.dataset.themePref = pref;
-    clearInterval(themeTimer); themeTimer = null;
-    if (pref === 'time') themeTimer = setInterval(() => { const want = nightNow() ? 'dark' : 'light'; if (document.documentElement.getAttribute('data-theme') !== want) applyTheme(); }, 5 * 60 * 1000);
-    const dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#252525' : '#7654E8'));
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
+  const mix = (hex, other, pct) => `color-mix(in srgb, ${hex} ${pct}%, ${other})`;
+  function applyAccent(dark) {
+    const a = state.settings?.accent || lsGet('accent-pref') || 'blue', root = document.documentElement;
+    if (state.settings?.accent) lsSet('accent-pref', state.settings.accent);
+    for (const p of ['--brand', '--brand-2', '--mint', '--glow', '--grad-hero', '--grad-logo', '--grad-night']) root.style.removeProperty(p);
+    if (/^#[0-9a-f]{6}$/i.test(a)) { // custom colour
+      root.setAttribute('data-accent', 'custom');
+      const b = dark ? mix(a, '#ffffff', 70) : a;
+      root.style.setProperty('--brand', b); root.style.setProperty('--brand-2', b); root.style.setProperty('--grad-logo', b);
+      root.style.setProperty('--mint', dark ? mix(a, 'transparent', 22) : mix(a, '#ffffff', 11));
+      root.style.setProperty('--glow', mix(a, 'transparent', 28));
+      const deep = mix(a, '#0b1020', 45); root.style.setProperty('--grad-hero', `linear-gradient(135deg, ${deep}, ${a})`); root.style.setProperty('--grad-night', `linear-gradient(135deg, ${deep}, ${a})`);
+    } else if (a === 'blue') root.removeAttribute('data-accent'); else root.setAttribute('data-accent', a);
   }
+  function applyTheme() {
+    const pref = state.settings?.theme || lsGet('theme-pref') || 'auto';
+    if (state.settings?.theme) lsSet('theme-pref', state.settings.theme);
+    const t = pref === 'time' ? (nightNow() ? 'dark' : 'light') : pref;
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+    clearInterval(themeTimer); themeTimer = null;
+    if (pref === 'time') themeTimer = setInterval(() => { if (document.documentElement.getAttribute('data-theme') !== (nightNow() ? 'dark' : 'light')) applyTheme(); }, 5 * 60 * 1000);
+    const dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    applyAccent(dark);
+    document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.setAttribute('content', dark ? '#0b1226' : '#F5F7FB'));
+  }
+  const isDarkNow = () => { const t = document.documentElement.getAttribute('data-theme'); return t === 'dark' || (!t && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); };
+  /** One-tap Day ↔ Night (an explicit choice; Settings still offers Auto and Match phone). */
+  function accentPicker(s) {
+    const cur = () => s.accent || 'blue';
+    const wrap = h('div', { class: 'field' }, [h('label', {}, 'App colour')]);
+    const row = h('div', { class: 'accent-row', id: 'accentRow', role: 'radiogroup', 'aria-label': 'App colour' });
+    const pick = async (v) => { s.accent = v; applyTheme(); paint(); await saveSettings(); toast('Colour updated'); };
+    const custom = h('input', { type: 'color', id: 'accentCustom', 'aria-label': 'Custom colour', value: /^#/.test(cur()) ? cur() : '#2563eb', onchange: (e) => pick(e.target.value.toUpperCase()) });
+    function paint() {
+      row.innerHTML = '';
+      for (const [k, label] of Object.entries(ACCENTS)) row.appendChild(h('button', { class: 'accent-sw a-' + k + (cur() === k ? ' on' : ''), 'data-accent': k, role: 'radio', 'aria-checked': cur() === k ? 'true' : 'false', 'aria-label': label, title: label, onclick: () => pick(k) }));
+      row.appendChild(h('label', { class: 'accent-sw a-custom' + (/^#/.test(cur()) ? ' on' : ''), title: 'Custom colour', style: /^#/.test(cur()) ? `background:${cur()}` : '' }, [custom]));
+    }
+    paint(); wrap.appendChild(row); wrap.appendChild(h('small', { class: 'muted' }, 'Changes buttons, tabs and highlights. Doctor and anaesthetist colours stay the same.'));
+    return wrap;
+  }
+  async function toggleDayNight() { const dark = isDarkNow(); state.settings.theme = dark ? 'light' : 'dark'; applyTheme(); render(); toast(dark ? 'Day mode' : 'Night mode'); await saveSettings(); }
 
   function enterApp() {
     state.filters = emptyFilters(todayISO().slice(0, 7));
@@ -495,7 +523,6 @@ const App = (() => {
     root().appendChild(screen);
     banners().forEach((b) => screen.appendChild(b));
     (SCREENS[state.route] || renderHome)(screen);
-    if (X.shell) X.shell(root(), screen);
     if (['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route) && !screen.querySelector('.page-head .icon-btn[aria-label="Back"]')) screen.insertBefore(h('button', { class: 'back-link', id: 'topBack', onclick: () => (history.length > 1 ? history.back() : go('home')) }, [ic('left'), 'Back']), screen.firstChild);
     setTimeout(updateFab, 0);
     if (!['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route)) root().appendChild(dock());
@@ -1531,7 +1558,8 @@ const App = (() => {
     screen.appendChild(pageHead('Settings', 'Profile & security', null, 'more'));
     const sel = (id, opts, get, set) => h('select', { class: 'input', id, onchange: async (e) => { await set(e.target.value); } }, opts.map(([v, l]) => h('option', { value: v, ...(String(get()) === String(v) ? { selected: true } : {}) }, l)));
     screen.appendChild(h('div', { class: 'card' }, [h('h3', {}, 'Appearance & entry'),
-      h('div', { class: 'field' }, [h('label', {}, 'Theme'), sel('themeSel', [['light', 'Day mode (pastel)'], ['dark', 'Night mode'], ['time', 'Auto — Night from 7 pm to 7 am'], ['auto', 'Match phone setting']], () => s.theme || 'light', async (v) => { s.theme = v; applyTheme(); await saveSettings(); toast('Theme updated'); })]),
+      h('div', { class: 'field' }, [h('label', {}, 'Day / Night mode'), sel('themeSel', [['light', 'Day mode'], ['dark', 'Night mode'], ['time', 'Auto — Night from 7 pm to 7 am'], ['auto', 'Match phone setting']], () => s.theme || 'auto', async (v) => { s.theme = v; applyTheme(); await saveSettings(); toast('Mode updated'); })]),
+      accentPicker(s),
       h('div', { class: 'field' }, [h('label', {}, 'Case entry form'), sel('entrySel', [['quick', 'Quick (essentials first)'], ['detailed', 'Detailed (all sections)']], () => s.entryMode || 'quick', async (v) => { s.entryMode = v; await saveSettings(); toast('Saved'); })]),
       h('div', { class: 'grid2' }, [
         h('div', { class: 'field' }, [h('label', {}, 'Paediatric: under (years)'), h('input', { class: 'input', id: 'paedAge', type: 'number', inputmode: 'numeric', min: '1', max: '30', value: s.paedAgeMax ?? 16, onchange: async (e) => { const n = Number(e.target.value); if (n >= 1 && n <= 30) { s.paedAgeMax = n; await saveSettings(); toast('Saved'); } } })]),
@@ -1669,7 +1697,7 @@ const App = (() => {
       pad, isoOf, parseISO, todayISO, fmtDate, fmtDay, monthLabel, shiftMonth, shiftDay, uid, shortName, initials, toneOf, TONE_VAR, DOW, MON, MONTHS,
       hospitalList, activeCases, activePreops, activeProcedures, casesForDate, dutiesOn, dutiesInMonth, emptyFilters, applyFilters, suggestedFor,
       encOp, settingsOp, imageOp, saveSettings, putCase, putDuty, putPreopRec, putProcedure, putTemplate, persistCase, persistPreop, rememberLists,
-      safeExport, openEdit, viewImage, editPhoto, editSavedImage, confirmDelete, lockNow, defaultSettings, afterUnlock, reloadAll, prepareImages, applyTheme, openChangePin,
+      safeExport, openEdit, viewImage, editPhoto, editSavedImage, confirmDelete, lockNow, defaultSettings, afterUnlock, reloadAll, prepareImages, applyTheme, toggleDayNight, isDarkNow, openChangePin,
       loadStore, X, nightDutyDate, addNightDuty, openDutySheet, recentTemplates, startManualCase, startCaseFrom, metaNow, unlockWithRaw, reencryptOps, setPinFromRaw, weakPin, clearLockout,
     };
     for (const f of window.V8Ext || []) { const r = f(ctx) || {}; Object.assign(SCREENS, r.screens || {}); Object.assign(X, r.api || {}); }
