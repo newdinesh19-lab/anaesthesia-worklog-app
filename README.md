@@ -255,3 +255,41 @@ Limits: not tested on a physical Android device (Chromium emulation only); very 
 - **App colour** (Settings → App colour): Blue (original), Teal, Violet, Rose, Orange, Green, or any custom colour. Changes buttons, tabs, highlights and headers only; doctor/anaesthetist colours never change. Night mode uses lighter shades of the chosen colour.
 - Readability fixes: notification badge, THANC "Add"/"Mark duty" labels, accent tiles in Night mode.
 - Data from v11/v12 opens unchanged (no database change).
+
+## v14.0.0 — Personal Planner, adaptive assistant, minimal Home
+
+### Home (answers: what can I do, where am I working, what's next, anything waiting?)
+Header (date, name, search, Day/Night, notifications, profile) · one slim "needs attention" line when relevant · four shortcuts (Add Case → case entry with Scan Sheet, My Cases, Pre-op, My Planner) · **Today's duty** (THANC shifts with time, doctors, status and one-tap **Mark** — confirmation still required) · **My day** (next two activities / planned OT cases, one-tap complete) · **one** assistant card (a "did you do it?" question or one suggestion). Statistics, analytics, recent cases and the full THANC one-tap editor moved one tap away (Cases / More / THANC screen).
+
+### Planner (More → My Planner, or the Home shortcut)
+- Day (24-hour timeline, live now-line, free-time bands, overlap warnings, tap empty time to add, long-press-drag to reschedule in 15-min steps), Week (overview: duties, clinical, study, personal, unfinished, free time, suggested study blocks) and Month (calendar + date details, upcoming, overdue/postponed, completed, routines, suggested). Search and category filters.
+- Quick entry: title, date, start, end (end before start = overnight), category, reminder. "More options": repeat (daily / weekdays / weekly on days / monthly, every N, until), location, description, notes, several reminders, alarm.
+- Natural language: "Study for one hour tomorrow at 7 PM", "Remind me about the appointment next Monday" (asks for the time), "Repeat exercise three days a week" (suggests days). Always shows a preview first. Runs offline, rule-based.
+- Repeating activities: edit or delete **this one / this & following / all**. Lifecycle: Planned, In progress, Completed, Partly done, Skipped, Postponed, Cancelled.
+- After an activity ends you are asked once (and at most one follow-up) whether it was done → Completed (repeat tomorrow / on selected days / find a free slot / one-time), Partly done (schedule the remaining minutes), Skipped (reschedule / dismiss).
+- Duties: THANC shifts you are assigned to, personal night duties and OT-schedule cases appear as **read-only** striped blocks with a link to their own screen. The planner never edits rosters.
+
+### Adaptive suggestions (explainable rules, local only)
+Shown one at a time with a "Why?" and Apply / Dismiss; nothing changes without confirmation; dismissed ideas stay hidden 14 days. Rules need ≥3 data points: repeated activity → routine; often postponed → time when that category usually gets done; repeatedly overrunning → longer block; clash with a duty → nearest free slot (outside your protected rest period). No AI service is used.
+
+### Reminders and alarms — what a web app can and cannot do
+- **Notification**: banner at the reminder time (title, time, category — never notes). **Alarm** (per activity): full-screen alert with tone + vibration, Snooze 5/10, Dismiss.
+- Delivered while the app is open or recently used. A PWA cannot ring when fully closed or after a reboot — missed reminders are listed when you reopen it. **For guaranteed alarms use the ⤓ "Add to phone calendar" button** (.ics with alarms, recurrence and exceptions).
+- Quiet hours, silence-while-on-duty, "alarms may break quiet hours", notify for every / first / alarms only. Each reminder fires once per device (dedup key includes the activity's time, so an edit re-arms it). Times are local wall-clock; time-zone and daylight-saving changes are re-evaluated automatically.
+
+### Optional Google Calendar sync (off by default)
+Requires your own OAuth Client ID (free):
+1. console.cloud.google.com → new project → **APIs & Services → Library → Google Calendar API → Enable**.
+2. **OAuth consent screen**: External, app name, your email; add your Gmail under **Test users**.
+3. **Credentials → Create credentials → OAuth client ID → Web application**; under *Authorised JavaScript origins* add the exact address you open the app from (e.g. `https://yourname.github.io`).
+4. In the app: Planner → ⚙ → Google Calendar: paste the Client ID, tick consent, Sign in, choose a calendar, pick a mode (Import only / Import + send my activities / Two-way) and allowed categories (Clinical is off by default).
+Only planner activities are sent (title, time, location, recurrence) — never descriptions, notes, cases, pre-op data, or anything that looks like a UHID/patient detail. The access token lives in memory only. Imported events are matched by Google id (no duplicates); edits on both sides are kept as a conflict for you to choose. Offline edits sync next time.
+
+### Data and migration
+No IndexedDB version change, no migration. New record types in the encrypted `templates` store: `activity` (one per activity/series, with per-date `overrides` for exceptions and statuses) and `plhist` (single history record). Settings gain `planner` and `gcal`. Device-only conveniences in localStorage: fired-reminder keys, snoozes, missed list. **Rollback**: installing v13 again leaves these records unused and untouched; all clinical data is unchanged. Backups include planner data automatically.
+
+### Permissions
+Notifications (optional, asked from the Planner card), vibration/sound (only for alarms, after you have used the app), network only for Google sync.
+
+### Test checklist
+Automated: unit (planner, recurrence, overnight, reminders, NLP, rules, quiet hours) + browser end-to-end (`e2e_planner`: Home layout 320–390 px, dock clearance, duty marking, NL entry, overnight, recurrence + exceptions, clash warning, statuses, week/month/search/filters, completion prompt, suggestion, alarm + snooze + dedup, Google sync with mocked API incl. duplicate prevention and privacy filter, offline creation) and all earlier suites (cases, OCR, photo editor, pre-op, THANC, exports, PIN/encryption, migration, offline). Manual on your phone: allow notifications; alarm while screen on; reminder with app in background; denied-permission path; time-zone change; .ics import into the phone calendar; Google sync with your own Client ID.

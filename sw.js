@@ -1,6 +1,6 @@
 // Offline app shell. Patient data never passes through here: it lives only in IndexedDB.
-const CACHE = 'anaesthesia-log-v13-0-0'; // bump on every release so phones pick up new files
-const SHELL = ['./', 'index.html', 'manifest.json', 'css/style.css', 'css/accent.css',
+const CACHE = 'anaesthesia-log-v14-0-0'; // bump on every release so phones pick up new files
+const SHELL = ['./', 'index.html', 'manifest.json', 'css/style.css', 'css/accent.css', 'css/planner.css', 'js/planner.js', 'js/plan-nlp.js', 'js/plan-learn.js', 'js/gcal.js', 'js/ui-planner.js',
   'js/crypto.js', 'js/schedule.js', 'js/thanc-hours.js', 'js/thanc.js', 'js/ui-schedule.js', 'js/ui-thanc.js', 'js/ui-thanc-reports.js', 'js/keys.js', 'js/ui-security.js', 'js/ui-home.js', 'js/schema.js', 'js/db.js', 'js/backup.js', 'js/meddata.js', 'js/parser.js', 'js/sequence.js', 'js/duplicates.js', 'js/stats.js',
   'js/analytics.js', 'js/export.js', 'js/reports.js', 'js/ocr.js',
   'js/ui-common.js', 'js/ui-data.js', 'js/ui-case.js', 'js/imgmath.js', 'js/imgedit.js', 'js/ui-preop.js', 'js/ui-proc.js', 'js/ui-portfolio.js', 'js/ui-dash.js', 'js/ui-search.js', 'js/ui-reports.js',
@@ -35,5 +35,11 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('message', (e) => { if (e.data === 'skipWaiting') self.skipWaiting(); });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => { const c = cs[0]; if (c) { c.postMessage({ route: (e.notification.data || {}).route || 'schedule' }); return c.focus(); } return self.clients.openWindow('./index.html'); }));
+  const data = e.notification.data || {};
+  // planner reminder actions: Snooze / Dismiss without opening the app when it is already running
+  if (e.action === 'snooze' || e.action === 'dismiss') {
+    e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => { cs.forEach((c) => c.postMessage({ planner: { action: e.action, key: data.key, title: e.notification.title, body: e.notification.body } })); if (!cs.length && e.action === 'snooze') return self.clients.openWindow('./index.html'); }));
+    return;
+  }
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => { const c = cs[0]; if (c) { c.postMessage({ route: data.route || 'schedule' }); return c.focus(); } return self.clients.openWindow('./index.html'); }));
 });

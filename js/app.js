@@ -48,6 +48,7 @@ const App = (() => {
   }
 
   const ICONS = {
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -417,6 +418,7 @@ const App = (() => {
     await recordSchema(fresh);
     if (X.refreshSecurityStatus) await X.refreshSecurityStatus();
     if (X.startReminders) X.startReminders();
+    if (X.startPlanner) X.startPlanner();
     DB.requestPersistence();
     applyTheme();
     lastActive = Date.now();
@@ -528,7 +530,7 @@ const App = (() => {
     if (!['add', 'preopEdit', 'procEdit', 'planEdit'].includes(state.route)) root().appendChild(dock());
   }
 
-  const MORE_ROUTES = ['more', 'settings', 'backup', 'security', 'schedule', 'planEdit', 'thanc', 'procedures', 'procEdit', 'portfolio', 'portfolioCat', 'analytics', 'reports', 'search', 'health', 'bin', 'templates'];
+  const MORE_ROUTES = ['more', 'planner', 'settings', 'backup', 'security', 'schedule', 'planEdit', 'thanc', 'procedures', 'procEdit', 'portfolio', 'portfolioCat', 'analytics', 'reports', 'search', 'health', 'bin', 'templates'];
   function dock() {
     const item = (route, icon, label, on) => h('button', { class: on ? 'on' : '', 'aria-label': label, onclick: () => go(route) }, [ic(icon), label]);
     const r = state.route;

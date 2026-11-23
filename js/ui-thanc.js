@@ -308,9 +308,13 @@
     screen.appendChild(ctx.pageHead('THANC Duty', 'Morning · Evening · Night', h('button', { class: 'icon-btn', id: 'thAdd', 'aria-label': 'Add duty', onclick: () => editSheet(ui.day || today(), 'morning') }, ic('plus')), 'more'));
     screen.appendChild(h('div', { class: 'seg th-tabs' }, TABS.map(([k, l]) => h('button', { class: ui.tab === k ? 'on' : '', id: 'thTab-' + k, onclick: () => { ui.tab = k; ctx.render(); } }, l))));
     const body = h('div'); screen.appendChild(body);
-    if (ui.tab === 'calendar') renderCalendar(body); else if (ui.tab === 'history') renderHistory(body);
+    if (ui.tab === 'calendar') { body.appendChild(homeSection()); renderCalendar(body); } else if (ui.tab === 'history') renderHistory(body);
     else if (ctx.thTabs[ui.tab]) ctx.thTabs[ui.tab](body); else body.appendChild(h('p', { class: 'muted' }, 'Loading…'));
   }
   ctx.thUI = { ui, cfg, resolve, recs, findRec, commit, saveCfg, persist, editSheet, dutyRow, avatar, docChip, monthNav, timeRange, issueIds, durText, historyView, liveOf };
-  return { screens: { thanc: renderThanc }, api: { thancHome: homeSection, openThanc: () => go('thanc') } };
+  /** Compact Home summary: today's three shifts with the same draft/default logic as the full screen. */
+  function todaySummary() { const date = todayISO(); return Th.SHIFTS.map((s) => { const d = draftFor(date, s.id); return { shift: s.id, label: s.label, start: d.start, end: d.end, doctors: [...d.doctors], saved: !!d.saved && !d.dirty }; }); }
+  /** Same action as the "Mark … duty" button on the THANC screen (pre-selected doctors, confirmation before a new duty is stored). */
+  async function quickMark(shift) { const date = todayISO(), d = draftFor(date, shift), meta = Th.shiftMeta(shift); if (!d.doctors.length) return quickSheet(date, shift); if (await persist(date, shift, d, liveOf(date, shift))) { ctx.render(); toast(meta.label + ' duty saved'); } }
+  return { screens: { thanc: renderThanc }, api: { thancHome: homeSection, thancToday: todaySummary, thancQuickMark: quickMark, openThanc: () => go('thanc') } };
 });

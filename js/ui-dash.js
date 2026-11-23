@@ -8,7 +8,8 @@
     screen.appendChild(pageHead('More', 'Everything else', h('button', { class: 'icon-btn', 'aria-label': 'Lock', onclick: ctx.lockNow }, ic('lock'))));
     const item = (route, icon, title, sub, tone) => h('button', { class: `hub-item t-${tone}`, id: 'hub-' + route, onclick: () => go(route) }, [h('span', { class: 'hub-ic' }, ic(icon)), h('b', {}, title), h('small', {}, sub)]);
     screen.appendChild(h('div', { class: 'hub' }, [
-      item('schedule', 'calendar', 'Schedule', 'Plan cases & reminders', 'rose'),
+      item('planner', 'clock', 'My Planner', '24-h day, reminders, routines', 'violet'),
+      item('schedule', 'calendar', 'OT Schedule', 'Plan cases & reminders', 'rose'),
       item('thanc', 'moon', 'THANC Duty', 'Morning · Evening · Night', 'night'),
       item('procedures', 'syringe', 'Procedures', 'Logbook & counts', 'mint'),
       item('portfolio', 'folder', 'Portfolio', 'By speciality', 'sky'),
